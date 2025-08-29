@@ -45,10 +45,29 @@ button { padding:10px 12px; border-radius:6px; border:1px solid #fff; background
 button.secondary { background:#555; color:#fff; border:1px solid #fff; }
 .hidden { display:none; }
 .actions { display:flex; gap:8px; flex-wrap:wrap; margin:10px 0; }
-table { width:100%; border-collapse:collapse; margin-top:12px; }
-th, td { padding:8px; border:1px solid #fff; text-align:left; font-size:13px; color:#fff; }
+table {
+    width: 100%;
+    table-layout: auto; /* ajusta colunas automaticamente */
+    border-collapse: collapse;
+    margin-top: 12px;
+    white-space: nowrap; /* impede quebra de linha */
+}
+
+th, td {
+    padding: 8px;
+    border: 1px solid #fff;
+    text-align: left;
+    font-size: 13px;
+    color: #fff;
+    white-space: nowrap; /* impede quebra de linha dentro das células */
+}
+
 th { background:#111; }
 tr:nth-child(even) { background:#222; }
+td { max-width: none; } /* remove limite de largura */
+
+
+    
 .admin-only { display:none; }
 .small { font-size:12px; color:#ccc; }
 .top-row { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
@@ -417,4 +436,5 @@ window.handleFirstLoginSetPassword = handleFirstLoginSetPassword;
 </script>
 </body>
 </html>
+
 
