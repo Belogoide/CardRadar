@@ -143,13 +143,30 @@ function importarCSV(input) { csvFile = input.files[0]; }
 async function executarCSV() {
   if(!csvFile) return alert("Selecione um arquivo CSV!");
   const text = await csvFile.text();
-  const lines = text.split("\n").filter(l=>l.trim()!=="");
-  const headers = lines[0].split(";").map(h=>h.trim());
-  for(let i=1;i<lines.length;i++){
+  const lines = text.split("\n").filter(l => l.trim() !== "");
+  const headers = lines[0].split(";").map(h => h.trim());
+
+  for(let i = 1; i < lines.length; i++) {
     const row = lines[i].split(";");
     const obj = {};
-    headers.forEach((h,idx)=> obj[h] = row[idx]?.trim() || "");
-    let vencimento = obj["Vencimento do limite"] ? new Date(obj["Vencimento do limite"]) : null;
+    headers.forEach((h, idx) => obj[h] = row[idx]?.trim() || "");
+
+    // Tratamento de data
+    let vencimento = null;
+    if (obj["Vencimento do limite"]) {
+      const parts = obj["Vencimento do limite"].split("/"); // para DD/MM/YYYY
+      if (parts.length === 3) {
+        const day = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10) - 1; // meses começam em 0
+        const year = parseInt(parts[2], 10);
+        const dateObj = new Date(year, month, day);
+        if (!isNaN(dateObj)) vencimento = dateObj.toISOString();
+      } else {
+        const dateObj = new Date(obj["Vencimento do limite"]);
+        if (!isNaN(dateObj)) vencimento = dateObj.toISOString();
+      }
+    }
+
     await addDoc(collection(db, "Cartao"), {
       nome: obj["Cliente"],
       cpf: obj["CPF"],
@@ -160,17 +177,19 @@ async function executarCSV() {
       regional: obj["Regional"],
       unidade: obj["Unidade 3Tentos"],
       assessor: obj["Assessor"],
-      limiteConcedido: parseFloat(obj["Limite Concedido"])||0,
-      limiteDisponivel: parseFloat(obj["Limite Disponivel"])||0,
-      percentualDisponivel: parseFloat(obj["% do Limite Disponivel"])||0,
-      vencimento: vencimento ? vencimento.toISOString() : null,
+      limiteConcedido: parseFloat(obj["Limite Concedido"]) || 0,
+      limiteDisponivel: parseFloat(obj["Limite Disponivel"]) || 0,
+      percentualDisponivel: parseFloat(obj["% do Limite Disponivel"]) || 0,
+      vencimento: vencimento,
       historico: [],
       primeiroLogin: false
     });
   }
+
   alert("CSV importado com sucesso!");
   carregarCartoes();
 }
+
 
 // Login
 function loginSistema() {
@@ -230,3 +249,4 @@ input, select { width:100%; padding:6px; margin:5px 0; border:1px solid white; b
 </div>
 </body>
 </html>
+
