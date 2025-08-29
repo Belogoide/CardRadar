@@ -2,110 +2,76 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Gestão de Cartões</title>
+  <title>Gestão de Limites</title>
   <style>
     body {
       font-family: Arial, sans-serif;
-      background: #f4f6f9;
+      background: #f5f5f5;
       margin: 0;
       padding: 0;
-      color: #333;
     }
     header {
-      background: #000;
+      background: #222;
       color: #fff;
-      padding: 15px;
-      text-align: center;
+      padding: 10px 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
     }
-    .container {
-      max-width: 1100px;
-      margin: 30px auto;
+    header h1 {
+      margin: 0;
+      font-size: 20px;
+    }
+    main {
+      padding: 20px;
+    }
+    .card {
       background: #fff;
-      padding: 25px;
-      border-radius: 12px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    }
-    h2 {
-      margin-top: 0;
-      border-bottom: 2px solid #eee;
-      padding-bottom: 8px;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      max-width: 500px;
+      margin: 20px auto;
     }
     input, button {
       padding: 10px;
-      margin: 8px 0;
+      margin: 5px 0;
+      width: 100%;
       border: 1px solid #ccc;
       border-radius: 6px;
       font-size: 14px;
     }
     button {
-      background: #000;
+      background: #222;
       color: #fff;
       cursor: pointer;
-      transition: background 0.3s;
     }
     button:hover {
-      background: #333;
+      background: #444;
     }
-    .hidden { display: none; }
-
-    /* tabela de cartões */
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 15px;
+    ul {
+      list-style: none;
+      padding: 0;
     }
-    table th, table td {
-      border: 1px solid #ddd;
-      padding: 10px;
-      text-align: left;
+    li {
+      background: #f9f9f9;
+      margin-bottom: 5px;
+      padding: 8px;
+      border-radius: 5px;
       font-size: 14px;
     }
-    table th {
-      background: #f0f0f0;
-    }
-    table tr:nth-child(even) {
-      background: #fafafa;
+    .admin-only {
+      margin-top: 15px;
+      display: none;
     }
   </style>
-</head>
-<body>
-  <header>
-    <h1>Gestão de Cartões</h1>
-  </header>
-
-  <div class="container" id="loginContainer">
-    <h2>Login</h2>
-    <input type="email" id="email" placeholder="E-mail"><br>
-    <input type="password" id="senha" placeholder="Senha"><br>
-    <button onclick="login()">Entrar</button>
-    <p id="loginError" style="color:red;"></p>
-  </div>
-
-  <div class="container hidden" id="appContainer">
-    <h2>Cartões</h2>
-    <table id="tabelaCartoes">
-      <thead>
-        <tr>
-          <th>Número</th>
-          <th>Outro Campo</th>
-        </tr>
-      </thead>
-      <tbody></tbody>
-    </table>
-
-    <div id="adminSection" class="hidden">
-      <h2>Importar CSV</h2>
-      <input type="file" id="csvFile">
-      <button onclick="runCSV()">Executar CSV</button>
-    </div>
-  </div>
-
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-    import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
-    import { getFirestore, collection, getDocs, addDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+    import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
+    import { getFirestore, doc, getDoc, setDoc, collection, getDocs, addDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
-const firebaseConfig = {
+    // Configuração Firebase
+  const firebaseConfig = {
   apiKey: "AIzaSyBKw2vWc6hwICs-yCsdqr1h4M1hmMUD0wE",
   authDomain: "limites-fd5a6.firebaseapp.com",
   projectId: "limites-fd5a6",
@@ -113,97 +79,125 @@ const firebaseConfig = {
   messagingSenderId: "51777731197",
   appId: "1:51777731197:web:dbc68948e1825cc2aecf14"
 };
+
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getFirestore(app);
 
-    async function login() {
+    // Login
+    async function loginSistema() {
       const email = document.getElementById("email").value;
       const senha = document.getElementById("senha").value;
+
       try {
-        await signInWithEmailAndPassword(auth, email, senha);
-        document.getElementById("loginError").textContent = "";
-      } catch (e) {
-        document.getElementById("loginError").textContent = "Erro: " + e.message;
+        const userCredential = await signInWithEmailAndPassword(auth, email, senha);
+        const user = userCredential.user;
+
+        // Cria doc de usuario se não existir
+        const userDocRef = doc(db, "Usuarios", user.uid);
+        const userSnap = await getDoc(userDocRef);
+        if (!userSnap.exists()) {
+          await setDoc(userDocRef, { primeiroLogin: true, email: user.email });
+        }
+
+      } catch (error) {
+        alert("Erro no login: " + error.message);
       }
     }
 
-    onAuthStateChanged(auth, (user) => {
-      if (user) {
-        document.getElementById("loginContainer").classList.add("hidden");
-        document.getElementById("appContainer").classList.remove("hidden");
+    // Logout
+    async function logoutSistema() {
+      await signOut(auth);
+    }
 
-        carregarCartoes();
-
-        // Somente admin vê upload
-        if (user.email === "teste@teste.com.br") {
-          document.getElementById("adminSection").classList.remove("hidden");
-        } else {
-          document.getElementById("adminSection").classList.add("hidden");
-        }
-      } else {
-        document.getElementById("loginContainer").classList.remove("hidden");
-        document.getElementById("appContainer").classList.add("hidden");
-      }
-    });
-
+    // Carregar cartões
     async function carregarCartoes() {
       const querySnapshot = await getDocs(collection(db, "Cartao"));
-      const tbody = document.querySelector("#tabelaCartoes tbody");
-      tbody.innerHTML = "";
-      querySnapshot.forEach((docItem) => {
-        const data = docItem.data();
-        const tr = document.createElement("tr");
-
-        const tdNumero = document.createElement("td");
-        tdNumero.textContent = data.numero || "-";
-        tr.appendChild(tdNumero);
-
-        const tdOutro = document.createElement("td");
-        tdOutro.textContent = data.outroCampo || "-";
-        tr.appendChild(tdOutro);
-
-        tbody.appendChild(tr);
+      const lista = document.getElementById("listaCartoes");
+      lista.innerHTML = "";
+      querySnapshot.forEach((doc) => {
+        const li = document.createElement("li");
+        li.textContent = JSON.stringify(doc.data());
+        lista.appendChild(li);
       });
     }
 
-    async function runCSV() {
-      const file = document.getElementById("csvFile").files[0];
-      if (!file) return;
+    // Adicionar cartão (somente admin)
+    async function adicionarCartao() {
+      const numero = prompt("Número do cartão:");
+      if (!numero) return;
+      await addDoc(collection(db, "Cartao"), { numero });
+      carregarCartoes();
+    }
 
-      const text = await file.text();
-      const lines = text.split("\n").map(l => l.trim()).filter(l => l);
-      const headers = lines[0].split(",");
-
-      for (let i = 1; i < lines.length; i++) {
-        const values = lines[i].split(",");
-        const obj = {};
-        headers.forEach((h, idx) => {
-          obj[h.trim()] = values[idx] ? values[idx].trim() : "";
-        });
-
-        // ✅ Correção do campo de data
-        let venc = null;
-        if (obj["Vencimento do limite"]) {
-          let raw = obj["Vencimento do limite"].trim();
-          if (/^\d{2}\/\d{2}\/\d{4}$/.test(raw)) {
-            const [dia, mes, ano] = raw.split("/");
-            venc = new Date(`${ano}-${mes}-${dia}T00:00:00`);
-          } else if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
-            venc = new Date(raw + "T00:00:00");
-          } else {
-            venc = new Date(raw);
-          }
-        }
-
-        await addDoc(collection(db, "Cartao"), {
-          numero: obj["Numero Cartao"] || "",
-          outroCampo: obj["Outro Campo"] || "",
-          vencimento: venc ? venc.toISOString() : null,
-        });
+    // Excluir todos os cartões (somente admin)
+    async function deletarCartoes() {
+      const confirmacao = confirm("Deseja realmente deletar todos os cartões?");
+      if (!confirmacao) return;
+      const querySnapshot = await getDocs(collection(db, "Cartao"));
+      for (const docItem of querySnapshot.docs) {
+        await deleteDoc(doc(db, "Cartao", docItem.id));
       }
       carregarCartoes();
     }
+
+    // Controle de estado
+    onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        document.getElementById("loginDiv").style.display = "none";
+        document.getElementById("appDiv").style.display = "block";
+        document.getElementById("userEmail").textContent = user.email;
+
+        // Exibe botões admin apenas se for o email específico
+        if (user.email === "teste@teste.com.br") {
+          document.querySelectorAll(".admin-only").forEach(el => el.style.display = "block");
+        } else {
+          document.querySelectorAll(".admin-only").forEach(el => el.style.display = "none");
+        }
+
+        carregarCartoes();
+      } else {
+        document.getElementById("loginDiv").style.display = "block";
+        document.getElementById("appDiv").style.display = "none";
+        document.getElementById("email").value = "";
+        document.getElementById("senha").value = "";
+      }
+    });
+
+    window.loginSistema = loginSistema;
+    window.logoutSistema = logoutSistema;
+    window.adicionarCartao = adicionarCartao;
+    window.deletarCartoes = deletarCartoes;
   </script>
+</head>
+<body>
+  <header>
+    <h1>Gestão de Limites</h1>
+    <span id="userEmail"></span>
+  </header>
+
+  <main>
+    <!-- Login -->
+    <div id="loginDiv" class="card">
+      <h2>Login</h2>
+      <input type="email" id="email" placeholder="Email"><br>
+      <input type="password" id="senha" placeholder="Senha"><br>
+      <button onclick="loginSistema()">Entrar</button>
+    </div>
+
+    <!-- App -->
+    <div id="appDiv" class="card" style="display:none;">
+      <h2>Cartões</h2>
+      <ul id="listaCartoes"></ul>
+
+      <!-- Botões apenas admin -->
+      <div class="admin-only">
+        <button onclick="adicionarCartao()">Adicionar Cartão</button>
+        <button onclick="deletarCartoes()">Excluir Todos os Cartões</button>
+      </div>
+
+      <button onclick="logoutSistema()">Sair</button>
+    </div>
+  </main>
 </body>
 </html>
