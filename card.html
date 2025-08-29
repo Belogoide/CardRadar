@@ -158,8 +158,8 @@ tr:nth-child(even){background:#222}
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-import { getAuth, signInWithEmailAndPassword, signOut, updatePassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
+import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+import { getAuth, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
 
 const firebaseConfig = {
 apiKey:"AIzaSyBKw2vWc6hwICs-yCsdqr1h4M1hmMUD0wE",
@@ -175,7 +175,8 @@ const db = getFirestore(app);
 const auth = getAuth(app);
 
 let csvFile=null;
-document.getElementById("csvFileInput").addEventListener("change", e=>csvFile=e.target.files[0]);
+const csvInput = document.getElementById("csvFileInput");
+csvInput.addEventListener("change", e=>csvFile=e.target.files[0]);
 
 async function runCSV(){
   if(!csvFile){ alert("Escolha um arquivo CSV"); return; }
@@ -183,155 +184,156 @@ async function runCSV(){
   reader.onload = async e=>{
     const text = e.target.result;
     const lines = text.split(/\r?\n/).filter(l=>l.trim()!=="");
-    if(lines.length < 2){ alert("CSV vazio ou sem dados válidos"); return; }
-
-    // separador ;
+    if(lines.length<2){ alert("CSV vazio ou sem dados válidos"); return; }
     const headers = lines[0].split(";").map(h=>h.trim());
     const batchAdd = [];
-
-    for(let i=1; i<lines.length; i++){
-      const values = lines[i].split(";").map(v=>v.trim());
-      if(values.length !== headers.length) continue;
-
-      const cardData = {};
-      headers.forEach((h, idx)=>{
+    for(let i=1;i<lines.length;i++){
+      const values=lines[i].split(";").map(v=>v.trim());
+      if(values.length!==headers.length) continue;
+      const cardData={};
+      headers.forEach((h,idx)=>{
         let val = values[idx];
-
-        // limpar valores monetários e porcentagem
-        if(h.includes("Limite") || h.includes("%")){
-          val = val.replace(/[R$%]/g,"").replace(",",".");
-          val = Number(val) || 0;
-        }
-
-        // data
+        if(h.includes("Limite")||h.includes("%")) val = Number(val.replace(/[R$%]/g,"").replace(",","."))||0;
         if(h.toLowerCase().includes("vencimento")){
-          const partes = val.split("/");
-          if(partes.length===3) val = `${partes[2]}-${partes[1].padStart(2,"0")}-${partes[0].padStart(2,"0")}`;
-          else val = "";
+          const p=val.split("/"); val=(p.length===3)?`${p[2]}-${p[1].padStart(2,"0")}-${p[0].padStart(2,"0")}`:"";
         }
-
-        // nomes simplificados para Firestore
         const keyMap = {
-          "Cliente":"nome",
-          "CPF":"cpf",
-          "User ID":"userId",
-          "Status Logistico":"statusLogistico",
-          "Status Limite":"statusLimite",
-          "Area Plantada":"areaPlantada",
-          "Regional":"regional",
-          "Unidade 3Tentos":"unidade",
-          "Assessor":"assessor",
-          "Limite Concedido":"limiteConcedido",
-          "Limite Disponivel":"limiteDisponivel",
-          "% do Limite Disponivel":"percentDisponivel",
+          "Cliente":"nome","CPF":"cpf","User ID":"userId","Status Logistico":"statusLogistico","Status Limite":"statusLimite",
+          "Area Plantada":"areaPlantada","Regional":"regional","Unidade 3Tentos":"unidade","Assessor":"assessor",
+          "Limite Concedido":"limiteConcedido","Limite Disponivel":"limiteDisponivel","% do Limite Disponivel":"percentDisponivel",
           "Vencimento do limite":"vencimento"
         };
-
-        const key = keyMap[h] || h;
-        cardData[key] = val;
+        cardData[keyMap[h]||h]=val;
       });
-
       batchAdd.push(cardData);
     }
-
-    if(batchAdd.length === 0){ alert("Nenhum registro válido encontrado no CSV"); return; }
-
+    if(batchAdd.length===0){ alert("Nenhum registro válido encontrado no CSV"); return; }
     try{
-      for(const c of batchAdd){
-        await addDoc(collection(db,"Cartao"),c);
-      }
+      for(const c of batchAdd) await addDoc(collection(db,"Cartao"),c);
       alert(`Importação concluída! ${batchAdd.length} cartões adicionados.`);
-      csvFile = null;
-      csvInput.value = "";
-      if(window.carregarCartoes) await window.carregarCartoes();
-    }catch(err){ alert("Erro ao importar CSV: " + err.message); }
+      csvFile=null; csvInput.value="";
+      await carregarCartoes();
+    }catch(err){ alert("Erro ao importar CSV: "+err.message);}
   };
   reader.readAsText(csvFile);
 }
 
-
 async function login(){
-const email=document.getElementById("inputEmail").value;
-const pass=document.getElementById("inputPassword").value;
-document.getElementById("loginError").textContent="";
-try{
-const userCred=await signInWithEmailAndPassword(auth,email,pass);
-document.getElementById("loginSection").classList.add("hidden");
-document.getElementById("userEmailDisplay").textContent=email;
-document.getElementById("logoutBtn").classList.remove("hidden");
-// aqui você pode checar se é primeiro login
-document.getElementById("appSection").classList.remove("hidden");
-document.querySelectorAll(".admin-only").forEach(e=>e.style.display="block");
-await carregarCartoes();
-}catch(err){document.getElementById("loginError").textContent=err.message;}
+  const email=document.getElementById("inputEmail").value;
+  const pass=document.getElementById("inputPassword").value;
+  document.getElementById("loginError").textContent="";
+  try{
+    const userCred=await signInWithEmailAndPassword(auth,email,pass);
+    document.getElementById("loginSection").classList.add("hidden");
+    document.getElementById("userEmailDisplay").textContent=email;
+    document.getElementById("logoutBtn").classList.remove("hidden");
+    document.getElementById("appSection").classList.remove("hidden");
+    document.querySelectorAll(".admin-only").forEach(e=>e.style.display="block");
+    await carregarCartoes();
+  }catch(err){document.getElementById("loginError").textContent=err.message;}
 }
 
 async function logout(){
-await signOut(auth);
-document.getElementById("loginSection").classList.remove("hidden");
-document.getElementById("appSection").classList.add("hidden");
-document.getElementById("userEmailDisplay").textContent="";
-document.getElementById("logoutBtn").classList.add("hidden");
+  await signOut(auth);
+  document.getElementById("loginSection").classList.remove("hidden");
+  document.getElementById("appSection").classList.add("hidden");
+  document.getElementById("userEmailDisplay").textContent="";
+  document.getElementById("logoutBtn").classList.add("hidden");
 }
 
-// funções básicas do formulário
 function showAddForm(){document.getElementById("cardForm").classList.remove("hidden");}
 function hideAddForm(){document.getElementById("cardForm").classList.add("hidden");}
+
+// Inserir / Editar cartão
 async function saveCard(){
-alert("Função saveCard ainda não implementada — insira a lógica para adicionar/editar Firestore");
+  const id = document.getElementById("f_id")?.value || null;
+  const nome = document.getElementById("f_nome").value.trim();
+  const cpf = document.getElementById("f_cpf").value.trim();
+  const regional = document.getElementById("f_regional").value.trim();
+  const unidade = document.getElementById("f_unidade").value.trim();
+  const assessor = document.getElementById("f_assessor").value.trim();
+  const areaPlantada = document.getElementById("f_areaPlantada").value.trim();
+  const limiteConcedido = parseFloat(document.getElementById("f_limiteConcedido").value.replace(",",".")||0);
+  const limiteDisponivel = parseFloat(document.getElementById("f_limiteDisponivel").value.replace(",",".")||0);
+  const statusLogistico = document.getElementById("f_statusLogistico").value;
+  const statusLimite = document.getElementById("f_statusLimite").value;
+  const vencimentoRaw = document.getElementById("f_vencimento").value;
+  const vencimento = vencimentoRaw ? new Date(vencimentoRaw).toISOString() : null;
+
+  if(!nome || !cpf){document.getElementById("formMsg").textContent="Preencha pelo menos Nome e CPF!"; return;}
+
+  const cardData = {nome, cpf, regional, unidade, assessor, areaPlantada, limiteConcedido, limiteDisponivel, statusLogistico, statusLimite, vencimento};
+
+  try{
+    if(id) await updateDoc(doc(db,"Cartao",id), cardData);
+    else await addDoc(collection(db,"Cartao"), cardData);
+    document.getElementById("formMsg").textContent="Cartão salvo com sucesso!";
+    hideAddForm(); await carregarCartoes();
+  }catch(err){document.getElementById("formMsg").textContent="Erro ao salvar cartão: "+err.message;}
 }
 
-// carregar cartões
+// Editar cartão
+async function editCard(id){
+  const docRef = doc(db,"Cartao",id);
+  const docSnap = await getDocs(docRef);
+  if(docSnap.exists()){
+    const d = docSnap.data();
+    document.getElementById("f_id")?.remove();
+    const idInput = document.createElement("input");
+    idInput.type="hidden"; idInput.id="f_id"; idInput.value=id;
+    document.getElementById("cardForm").appendChild(idInput);
+    document.getElementById("f_nome").value=d.nome||"";
+    document.getElementById("f_cpf").value=d.cpf||"";
+    document.getElementById("f_regional").value=d.regional||"";
+    document.getElementById("f_unidade").value=d.unidade||"";
+    document.getElementById("f_assessor").value=d.assessor||"";
+    document.getElementById("f_areaPlantada").value=d.areaPlantada||"";
+    document.getElementById("f_limiteConcedido").value=d.limiteConcedido||0;
+    document.getElementById("f_limiteDisponivel").value=d.limiteDisponivel||0;
+    document.getElementById("f_statusLogistico").value=d.statusLogistico||"";
+    document.getElementById("f_statusLimite").value=d.statusLimite||"";
+    document.getElementById("f_vencimento").value=d.vencimento?new Date(d.vencimento).toISOString().split("T")[0]:"";
+    showAddForm();
+  } else alert("Cartão não encontrado!");
+}
+
+// Carregar cartões na tabela
 async function carregarCartoes(){
-const tbody=document.getElementById("cardsTbody");
-tbody.innerHTML="";
-const snapshot=await getDocs(collection(db,"Cartao"));
-snapshot.forEach(docSnap=>{
-const d=docSnap.data();
-const tr=document.createElement("tr");
-tr.innerHTML=`
-<td>${d.nome||""}</td>
-<td>${d.cpf||""}</td>
-<td>${d.statusLogistico||""}</td>
-<td>${d.statusLimite||""}</td>
-<td>${d.areaPlantada||""}</td>
-<td>${d.regional||""}</td>
-<td>${d.unidade||""}</td>
-<td>${d.assessor||""}</td>
-<td>${d.limiteConcedido||0}</td>
-<td>${d.limiteDisponivel||0}</td>
-<td>${d.limiteConcedido?Math.round((d.limiteDisponivel/d.limiteConcedido)*100):0}%</td>
-<td>${d.vencimento?new Date(d.vencimento).toLocaleDateString("pt-BR"):""}</td>
-<td><button onclick="deleteCard('${docSnap.id}')">Excluir</button></td>
-`;
-tbody.appendChild(tr);
-});
+  const tbody=document.getElementById("cardsTbody");
+  tbody.innerHTML="";
+  const snapshot=await getDocs(collection(db,"Cartao"));
+  snapshot.forEach(docSnap=>{
+    const d=docSnap.data();
+    const tr=document.createElement("tr");
+    tr.innerHTML=`
+      <td>${d.nome||""}</td>
+      <td>${d.cpf||""}</td>
+      <td>${d.statusLogistico||""}</td>
+      <td>${d.statusLimite||""}</td>
+      <td>${d.areaPlantada||""}</td>
+      <td>${d.regional||""}</td>
+      <td>${d.unidade||""}</td>
+      <td>${d.assessor||""}</td>
+      <td>${d.limiteConcedido||0}</td>
+      <td>${d.limiteDisponivel||0}</td>
+      <td>${d.limiteConcedido?Math.round((d.limiteDisponivel/d.limiteConcedido)*100):0}%</td>
+      <td>${d.vencimento?new Date(d.vencimento).toLocaleDateString("pt-BR"):""}</td>
+      <td>
+        <button onclick="editCard('${docSnap.id}')">Editar</button>
+        <button onclick="deleteCard('${docSnap.id}')">Excluir</button>
+      </td>`;
+    tbody.appendChild(tr);
+  });
 }
 
-async function deleteCard(id){
-if(!confirm("Deseja realmente excluir este cartão?")) return;
-await deleteDoc(doc(db,"Cartao",id));
-await carregarCartoes();
-}
+async function deleteCard(id){if(!confirm("Deseja realmente excluir este cartão?")) return; await deleteDoc(doc(db,"Cartao",id)); await carregarCartoes();}
+async function deleteAllExceptProtected(){if(!confirm("Deseja realmente excluir todos os cartões?")) return; const snapshot=await getDocs(collection(db,"Cartao")); for(const d of snapshot.docs) await deleteDoc(doc(db,"Cartao",d.id)); await carregarCartoes();}
 
-async function deleteAllExceptProtected(){
-if(!confirm("Deseja realmente excluir todos os cartões?")) return;
-const snapshot=await getDocs(collection(db,"Cartao"));
-for(const d of snapshot.docs) await deleteDoc(doc(db,"Cartao",d.id));
-await carregarCartoes();
-}
-
-window.runCSV=runCSV;
-window.login=login;
-window.logout=logout;
-window.showAddForm=showAddForm;
-window.hideAddForm=hideAddForm;
-window.saveCard=saveCard;
-window.carregarCartoes=carregarCartoes;
-window.deleteCard=deleteCard;
-window.deleteAllExceptProtected=deleteAllExceptProtected;
-
+window.runCSV=runCSV; window.login=login; window.logout=logout;
+window.showAddForm=showAddForm; window.hideAddForm=hideAddForm;
+window.saveCard=saveCard; window.carregarCartoes=carregarCartoes;
+window.deleteCard=deleteCard; window.deleteAllExceptProtected=deleteAllExceptProtected;
+window.editCard=editCard;
 </script>
 </body>
 </html>
-
