@@ -5,31 +5,57 @@
 <title>Gestão de Cartões — Completo</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
-:root{--bg:#000;--card:#111;--accent:#fff;--muted:#ccc;--success:#1a9a3b;}
-*{box-sizing:border-box;}
-body{margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:#fff;}
-.wrap{max-width:1100px;margin:32px auto;padding:20px;}
-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
-header h1{margin:0;font-size:20px;color:var(--accent)}
-.card{background:var(--card);border-radius:10px;padding:18px;box-shadow:0 0 0 2px #fff;}
-.login-grid{max-width:420px;margin:0 auto;}
-input[type="email"], input[type="password"], input[type="text"], input[type="number"], input[type="date"], select{
-width:100%;padding:10px;margin:8px 0;border-radius:6px;border:1px solid #fff;
-font-size:14px;background:#000;color:#fff;}
-button{padding:10px 12px;border-radius:6px;border:1px solid #fff;background:var(--accent);color:#000;cursor:pointer}
-button.secondary{background:#555;color:#fff;border:1px solid #fff}
-.hidden{display:none}
-.actions{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
-table{width:100%;border-collapse:collapse;margin-top:12px}
-th,td{padding:8px;border:1px solid #fff;text-align:left;font-size:13px;color:#fff}
-th{background:#111}
-tr:nth-child(even){background:#222}
-.admin-only{display:none}
-.small{font-size:12px;color:#ccc}
-.top-row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
-.file-input{display:inline-block;color:#000}
-@media(max-width:820px){header{flex-direction:column;align-items:flex-start;gap:8px}}
+/* --- Fonte personalizada --- */
+@font-face {
+    font-family: 'JTU';
+    src: url('./JTUSjIg1_i6t8kCHKm459Wlhyw (2).woff2') format('woff2');
+    font-weight: normal;
+    font-style: normal;
+}
+
+/* Aplica a fonte em todo o site */
+body, input, select, button, table, th, td, h1, h2, h3, p {
+    font-family: 'JTU', Arial, Helvetica, sans-serif;
+}
+
+/* --- Regras existentes --- */
+:root {
+    --bg:#000;
+    --card:#111;
+    --accent:#fff;
+    --muted:#ccc;
+    --success:#1a9a3b;
+}
+* { box-sizing:border-box; }
+body {
+    margin:0;
+    background:var(--bg);
+    color:#fff;
+}
+.wrap { max-width:1100px; margin:32px auto; padding:20px; }
+header { display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; }
+header h1 { margin:0; font-size:20px; color:var(--accent); }
+.card { background:var(--card); border-radius:10px; padding:18px; box-shadow:0 0 0 2px #fff; }
+.login-grid { max-width:420px; margin:0 auto; }
+input[type="email"], input[type="password"], input[type="text"], input[type="number"], input[type="date"], select {
+    width:100%; padding:10px; margin:8px 0; border-radius:6px; border:1px solid #fff;
+    font-size:14px; background:#000; color:#fff;
+}
+button { padding:10px 12px; border-radius:6px; border:1px solid #fff; background:var(--accent); color:#000; cursor:pointer; }
+button.secondary { background:#555; color:#fff; border:1px solid #fff; }
+.hidden { display:none; }
+.actions { display:flex; gap:8px; flex-wrap:wrap; margin:10px 0; }
+table { width:100%; border-collapse:collapse; margin-top:12px; }
+th, td { padding:8px; border:1px solid #fff; text-align:left; font-size:13px; color:#fff; }
+th { background:#111; }
+tr:nth-child(even) { background:#222; }
+.admin-only { display:none; }
+.small { font-size:12px; color:#ccc; }
+.top-row { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+.file-input { display:inline-block; color:#000; }
+@media(max-width:820px) { header { flex-direction:column; align-items:flex-start; gap:8px; } }
 </style>
+
 </head>
 <body>
 <div class="wrap">
@@ -391,3 +417,4 @@ window.handleFirstLoginSetPassword = handleFirstLoginSetPassword;
 </script>
 </body>
 </html>
+
