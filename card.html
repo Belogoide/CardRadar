@@ -173,251 +173,69 @@
     </section>
   </div>
 
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-    import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, updatePassword } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
-    import { getFirestore, collection, getDocs, addDoc, doc, getDoc, setDoc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+ <script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+import { getFirestore, collection, addDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
-    const firebaseConfig = {
-      apiKey: "AIzaSyBKw2vWc6hwICs-yCsdqr1h4M1hmMUD0wE",
-      authDomain: "limites-fd5a6.firebaseapp.com",
-      projectId: "limites-fd5a6",
-      storageBucket: "limites-fd5a6.firebasestorage.app",
-      messagingSenderId: "51777731197",
-      appId: "1:51777731197:web:dbc68948e1825cc2aecf14"
-    };
+const firebaseConfig = {
+  apiKey: "AIzaSyBKw2vWc6hwICs-yCsdqr1h4M1hmMUD0wE",
+  authDomain: "limites-fd5a6.firebaseapp.com",
+  projectId: "limites-fd5a6",
+  storageBucket: "limites-fd5a6.firebasestorage.app",
+  messagingSenderId: "51777731197",
+  appId: "1:51777731197:web:dbc68948e1825cc2aecf14"
+};
 
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
 
-    const PROTECTED_DOC_ID = "CB0WCT2tC1R7juMQ3sT9";
+let csvFile = null;
+const csvInput = document.getElementById("csvFileInput");
+csvInput.addEventListener("change", e => { csvFile = e.target.files[0]; });
 
-    let currentUser = null;
-    let csvFile = null;
-    let editingDocId = null;
+window.runCSV = async function() {
+  if(!csvFile) { alert("Escolha um arquivo CSV"); return; }
 
-    const loginSection = document.getElementById("loginSection");
-    const appSection = document.getElementById("appSection");
-    const firstLoginSection = document.getElementById("firstLoginSection");
-    const userEmailDisplay = document.getElementById("userEmailDisplay");
-    const logoutBtn = document.getElementById("logoutBtn");
-    const adminControls = document.getElementById("adminControls");
-    const cardsTbody = document.getElementById("cardsTbody");
-    const cardForm = document.getElementById("cardForm");
-    const csvInput = document.getElementById("csvFileInput");
+  const reader = new FileReader();
+  reader.onload = async e => {
+    const text = e.target.result;
+    const lines = text.split(/\r?\n/).filter(l => l.trim() !== "");
+    if(lines.length < 2) { alert("CSV vazio ou sem dados válidos"); return; }
 
-    csvInput.addEventListener("change",(e)=>{csvFile=e.target.files[0];});
+    const headers = lines[0].split(",").map(h => h.trim());
+    const batchAdd = [];
 
-    function removeAcentos(str){return str.normalize("NFD").replace(/[\u0300-\u036f]/g,"");}
-    function formatDataBR(dataStr){
-      if(!dataStr) return "";
-      if(dataStr.includes("/")) return dataStr; // já no formato BR
-      const d = new Date(dataStr);
-      if(isNaN(d)) return "";
-      return d.toLocaleDateString("pt-BR");
-    }
+    for(let i = 1; i < lines.length; i++){
+      const values = lines[i].split(",").map(v => v.trim());
+      if(values.length !== headers.length) continue;
 
-    function mapHeaderToField(header){
-      const h = removeAcentos(header.toLowerCase().trim());
-      if(h==="nome") return "nome";
-      if(h==="cpf") return "cpf";
-      if(h==="regional") return "regional";
-      if(h==="unidade") return "unidade";
-      if(h==="assessor") return "assessor";
-      if(h==="areaplantada") return "areaPlantada";
-      if(h==="limiteconcedido") return "limiteConcedido";
-      if(h==="limitedisponivel") return "limiteDisponivel";
-      if(h==="statuslogistico") return "statusLogistico";
-      if(h==="statuslimite") return "statusLimite";
-      if(h==="vencimento") return "vencimento";
-      return h;
-    }
-
-    onAuthStateChanged(auth, async (user)=>{
-      currentUser=user;
-      if(user){
-        userEmailDisplay.textContent=user.email;
-        logoutBtn.classList.remove("hidden");
-
-        const userDocRef = doc(db,"Usuarios",user.uid);
-        let isFirstLogin=true;
-        try{const userSnap = await getDoc(userDocRef); if(userSnap.exists()) isFirstLogin=false;}catch(err){alert("Erro ao verificar usuário: "+err.message);}
-
-        if(isFirstLogin){
-          loginSection.classList.add("hidden");
-          firstLoginSection.classList.remove("hidden");
-          appSection.classList.add("hidden");
-        }else{
-          loginSection.classList.add("hidden");
-          firstLoginSection.classList.add("hidden");
-          appSection.classList.remove("hidden");
-          if(user.email==="teste@teste.com.br") document.querySelectorAll(".admin-only").forEach(el=>el.style.display="block");
-          await carregarCartoes();
+      const cardData = {};
+      headers.forEach((h, idx) => {
+        let val = values[idx];
+        if(h === "limiteConcedido" || h === "limiteDisponivel") val = Number(val);
+        if(h === "vencimento") {
+          const partes = val.split("/");
+          if(partes.length === 3) val = `${partes[2]}-${partes[1].padStart(2,"0")}-${partes[0].padStart(2,"0")}`;
+          else val = "";
         }
-      }else{
-        loginSection.classList.remove("hidden");
-        firstLoginSection.classList.add("hidden");
-        appSection.classList.add("hidden");
-        logoutBtn.classList.add("hidden");
-        userEmailDisplay.textContent="";
-      }
-    });
-
-    async function login(){
-      const email = document.getElementById("inputEmail").value.trim();
-      const senha = document.getElementById("inputPassword").value;
-      document.getElementById("loginError").textContent="";
-      if(!email||!senha){document.getElementById("loginError").textContent="Informe email e senha.";return;}
-      try{await signInWithEmailAndPassword(auth,email,senha);}catch(err){document.getElementById("loginError").textContent=err.message;}
+        cardData[h] = val;
+      });
+      batchAdd.push(cardData);
     }
 
-    async function handleFirstLoginSetPassword(){
-      const np=document.getElementById("newPassword").value;
-      const cp=document.getElementById("confirmNewPassword").value;
-      const msgEl=document.getElementById("firstLoginMsg");
-      msgEl.textContent="";
-      if(!np||np.length<6){msgEl.textContent="Senha deve ter ao menos 6 caracteres.";return;}
-      if(np!==cp){msgEl.textContent="Senhas não conferem.";return;}
-      if(!currentUser){msgEl.textContent="Usuário não autenticado.";return;}
-      try{
-        await updatePassword(currentUser,np);
-        await setDoc(doc(db,"Usuarios",currentUser.uid),{primeiroLogin:true,email:currentUser.email});
-        firstLoginSection.classList.add("hidden");
-        appSection.classList.remove("hidden");
-        if(currentUser.email==="teste@teste.com.br") document.querySelectorAll(".admin-only").forEach(el=>el.style.display="block");
-        await carregarCartoes();
-      }catch(err){msgEl.textContent="Erro: "+err.message;}
-    }
+    if(batchAdd.length === 0) { alert("Nenhum registro válido encontrado no CSV"); return; }
 
-    async function carregarCartoes(){
-      cardsTbody.innerHTML="";
-      try{
-        const snapshot = await getDocs(collection(db,"Cartao"));
-        snapshot.forEach(s=>{
-          const c=s.data();
-          const perc=c.limiteConcedido?((c.limiteDisponivel/c.limiteConcedido)*100).toFixed(2)+"%":"";
-          tr=document.createElement("tr");
-          tr.innerHTML=`
-            <td>${c.nome||""}</td>
-            <td>${c.cpf||""}</td>
-            <td>${c.statusLogistico||""}</td>
-            <td>${c.statusLimite||""}</td>
-            <td>${c.areaPlantada||""}</td>
-            <td>${c.regional||""}</td>
-            <td>${c.unidade||""}</td>
-            <td>${c.assessor||""}</td>
-            <td>${c.limiteConcedido||""}</td>
-            <td>${c.limiteDisponivel||""}</td>
-            <td>${perc}</td>
-            <td>${formatDataBR(c.vencimento)}</td>
-            <td>
-              <button onclick="editCard('${s.id}')">Editar</button>
-              <button onclick="deleteCard('${s.id}')" style="background:#b00020">Deletar</button>
-            </td>
-          `;
-          cardsTbody.appendChild(tr);
-        });
-      }catch(err){alert(err.message);}
-    }
-
-    function logout(){signOut(auth);}
-    function showAddForm(){editingDocId=null; cardForm.classList.remove("hidden");}
-    function hideAddForm(){cardForm.classList.add("hidden");}
-
-    async function saveCard(){
-      const data={
-        nome:document.getElementById("f_nome").value,
-        cpf:document.getElementById("f_cpf").value,
-        regional:document.getElementById("f_regional").value,
-        unidade:document.getElementById("f_unidade").value,
-        assessor:document.getElementById("f_assessor").value,
-        areaPlantada:document.getElementById("f_areaPlantada").value,
-        limiteConcedido:Number(document.getElementById("f_limiteConcedido").value),
-        limiteDisponivel:Number(document.getElementById("f_limiteDisponivel").value),
-        statusLogistico:document.getElementById("f_statusLogistico").value,
-        statusLimite:document.getElementById("f_statusLimite").value,
-        vencimento:document.getElementById("f_vencimento").value
-      };
-      try{
-        if(editingDocId) await updateDoc(doc(db,"Cartao",editingDocId),data);
-        else await addDoc(collection(db,"Cartao"),data);
-        hideAddForm(); await carregarCartoes();
-      }catch(err){alert(err.message);}
-    }
-
-    async function editCard(id){
-      editingDocId=id;
-      const c = (await getDoc(doc(db,"Cartao",id))).data();
-      document.getElementById("f_nome").value=c.nome||"";
-      document.getElementById("f_cpf").value=c.cpf||"";
-      document.getElementById("f_regional").value=c.regional||"";
-      document.getElementById("f_unidade").value=c.unidade||"";
-      document.getElementById("f_assessor").value=c.assessor||"";
-      document.getElementById("f_areaPlantada").value=c.areaPlantada||"";
-      document.getElementById("f_limiteConcedido").value=c.limiteConcedido||"";
-      document.getElementById("f_limiteDisponivel").value=c.limiteDisponivel||"";
-      document.getElementById("f_statusLogistico").value=c.statusLogistico||"";
-      document.getElementById("f_statusLimite").value=c.statusLimite||"";
-      document.getElementById("f_vencimento").value=c.vencimento||"";
-      showAddForm();
-    }
-
-    async function deleteCard(id){
-      if(confirm("Confirma deletar?")){await deleteDoc(doc(db,"Cartao",id)); await carregarCartoes();}
-    }
-
-    async function deleteAllExceptProtected(){
-      if(!confirm("Confirma deletar todos os cartões exceto protegido?")) return;
-      const snapshot = await getDocs(collection(db,"Cartao"));
-      for(const s of snapshot.docs){
-        if(s.id!==PROTECTED_DOC_ID) await deleteDoc(doc(db,"Cartao",s.id));
-      }
-      await carregarCartoes();
-    }
-
-    async function runCSV() {
-      if (!csvFile) { alert("Escolha um arquivo CSV"); return; }
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        const text = e.target.result;
-        const lines = text.split(/\r?\n/).filter(l => l.trim() !== "");
-        if (lines.length < 2) { alert("CSV vazio ou sem dados válidos"); return; }
-
-        const headers = lines[0].split(",").map(h=>mapHeaderToField(h));
-        const batchAdd = [];
-
-        for (let i = 1; i < lines.length; i++) {
-          const values = lines[i].split(",").map(v => v.trim());
-          if (values.length !== headers.length) continue;
-
-          const cardData = {};
-          headers.forEach((h, idx) => {
-            let val = removeAcentos(values[idx]);
-            if (["limiteConcedido","limiteDisponivel"].includes(h)) val = Number(val);
-            if (h==="vencimento") val = formatDataBR(val).split("/").reverse().join("-");
-            cardData[h]=val;
-          });
-          batchAdd.push(cardData);
-        }
-
-        if (batchAdd.length===0){alert("Nenhum registro válido encontrado no CSV"); return;}
-        try{
-          for(const c of batchAdd) await addDoc(collection(db,"Cartao"),c);
-          alert(`Importação concluída! ${batchAdd.length} cartões adicionados.`);
-          await carregarCartoes();
-          csvFile=null;
-          csvInput.value="";
-        }catch(err){alert("Erro ao importar CSV: "+err.message);}
-      };
-      reader.readAsText(csvFile);
-    }
-
-
-
-
-
-    // Expõe as funções para o HTML poder chamar via onclick
+    try{
+      for(const c of batchAdd) { await addDoc(collection(db, "Cartao"), c); }
+      alert(`Importação concluída! ${batchAdd.length} cartões adicionados.`);
+      csvFile = null;
+      csvInput.value = "";
+      if(window.carregarCartoes) await window.carregarCartoes();
+    }catch(err){ alert("Erro ao importar CSV: " + err.message); }
+  };
+  reader.readAsText(csvFile);
+};
+// Expõe as funções para o HTML poder chamar via onclick
 window.runCSV = runCSV;
 window.showAddForm = showAddForm;
 window.hideAddForm = hideAddForm;
@@ -429,7 +247,12 @@ window.login = login;
 window.logout = logout;
 window.handleFirstLoginSetPassword = handleFirstLoginSetPassword;
 
-  </script>
+
+
+
+   
+</script>
 </body>
 </html>
+
 
