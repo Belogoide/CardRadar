@@ -5,7 +5,7 @@
 <title>Gestão de Cartões</title>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, arrayUnion, query, where, deleteDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, arrayUnion, deleteDoc, query, where } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 import { getAuth, signInWithEmailAndPassword, updatePassword } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
 
 const firebaseConfig = {
@@ -26,172 +26,160 @@ const regionais = ["1","2","3"];
 const unidadesPorRegional = { "1":["A","B","C"], "2":["D","E","F"], "3":["G","H","I"] };
 const assessoresPorRegional = { "1":["Joao"], "2":["Pedro"], "3":["Carlos"] };
 const statusLogisticoOptions = [
-  "1 -","2 - Aguardando receber plástico na TC (Ijuí)","3 - Aguardando receber plástico na TC (Sinop)",
+  "1 -", "2 - Aguardando receber plástico na TC (Ijuí)","3 - Aguardando receber plástico na TC (Sinop)",
   "3.5 - Na TC Ijuí","4 - Em Trânsito para a unidade","5 - Aguardando Entrega ao cliente",
   "6 - Cartão Não Entregue","7 - Cartão Entregue","8 - Não se Aplica"
 ];
 const statusLimiteOptions = [
-  "01 - Limite - Aguardando análise","02 - Limite - Análise de Crédito","03 - Limite - Aguardando retorno do GU",
-  "04 - Limite - Aguardando Validação Eduardo","05 - Limite Aprovado - Aguardando Solicitação App. (DESUSO)",
-  "06 - Limite - Aguardando aprovar limite Sinqia","07 - Limite - Aguardando aprovar limite WM",
-  "08 - Limite Aprovado - Aguardando matrícula (DESUSO)","09 - Limite Aprovado - Aguardando envio de contrato",
-  "10 - Limite Aprovado - Aguardando assinatura do contrato","11 - Limite Aprovado - Aguardando assinatura renovação",
-  "12 - Aguardando desbloqueio","13 - Desbloqueado sem utilização","14 - Ativo","15 - Limite - Cancelado","99 - NEGADO WM"
+  "01 - Limite - Aguardando análise","02 - Limite - Análise de Crédito",
+  "03 - Limite - Aguardando retorno do GU","04 - Limite - Aguardando Validação Eduardo",
+  "05 - Limite Aprovado - Aguardando Solicitação App. (DESUSO)","06 - Limite - Aguardando aprovar limite Sinqia",
+  "07 - Limite - Aguardando aprovar limite WM","08 - Limite Aprovado - Aguardando matrícula (DESUSO)",
+  "09 - Limite Aprovado - Aguardando envio de contrato","10 - Limite Aprovado - Aguardando assinatura do contrato",
+  "11 - Limite Aprovado - Aguardando assinatura renovação","12 - Aguardando desbloqueio",
+  "13 - Desbloqueado sem utilização","14 - Ativo","15 - Limite - Cancelado","99 - NEGADO WM"
 ];
+
+// Tela de login
+async function loginUser(){
+  const email = document.getElementById("email").value;
+  const senha = document.getElementById("senha").value;
+  try {
+    const userCredential = await signInWithEmailAndPassword(auth,email,senha);
+    const user = userCredential.user;
+    document.getElementById("loginDiv").style.display="none";
+    document.getElementById("app").style.display="block";
+    carregarCartoes();
+  } catch(error){
+    alert("Erro: "+error.message);
+  }
+}
+window.loginUser = loginUser;
 
 // Popup genérico
 function perguntar(titulo, tipo="text", opcoes=[]){
   return new Promise(resolve=>{
     const modal=document.createElement("div");
     modal.className="modal";
-    modal.innerHTML=`
-      <div class="modal-content">
-        <h3>${titulo}</h3>
-        ${tipo==="select"?`<select id="modal-input">${opcoes.map(o=>`<option value="${o}">${o}</option>`).join("")}</select>`:`<input type="${tipo}" id="modal-input">`}
-        <button id="ok-btn">OK</button>
-      </div>`;
+    modal.innerHTML=`<div class="modal-content">
+      <h3>${titulo}</h3>
+      ${tipo==="select"?`<select id="modal-input">${opcoes.map(o=>`<option value="${o}">${o}</option>`).join("")}</select>`:`<input type="${tipo}" id="modal-input">`}
+      <button id="ok-btn">OK</button>
+    </div>`;
     document.body.appendChild(modal);
     document.getElementById("ok-btn").onclick=()=>{
       const valor=document.getElementById("modal-input").value;
       modal.remove();
       resolve(valor);
-    };
+    }
   });
 }
 
-// LOGIN
-async function loginUser(){
-  const email=document.getElementById("email").value;
-  const senha=document.getElementById("senha").value;
-  try{
-    const userCredential = await signInWithEmailAndPassword(auth,email,senha);
-    const user=userCredential.user;
-    const q=query(collection(db,"Cartao"),where("userId","==",email));
-    const querySnapshot=await getDocs(q);
-    if(!querySnapshot.empty){
-      const userDoc=querySnapshot.docs[0];
-      const data=userDoc.data();
-      if(data.primeiroLogin){
-        const novaSenha=prompt("Troque sua senha:");
-        if(novaSenha){ await updatePassword(user,novaSenha); await updateDoc(doc(db,"Cartao",userDoc.id),{primeiroLogin:false}); alert("Senha atualizada! Faça login novamente."); return; }
-      }
-    }
-    document.getElementById("loginDiv").style.display="none";
-    document.getElementById("app").style.display="block";
-    carregarCartoes();
-  }catch(e){alert("Erro ao autenticar: "+e.message);}
-}
-
-// CARREGAR TABELA
+// Carregar tabela
 async function carregarCartoes(){
-  const snapshot=await getDocs(collection(db,"Cartao"));
-  const tbody=document.getElementById("cartoes-body");
+  const snapshot = await getDocs(collection(db,"Cartao"));
+  const tbody=document.querySelector("#cartoes-body");
   tbody.innerHTML="";
   snapshot.forEach(docSnap=>{
     const c=docSnap.data();
     const tr=document.createElement("tr");
     tr.innerHTML=`
-      <td>${c.Cliente||''}</td>
-      <td>${c.CPF||''}</td>
-      <td>${c["User ID"]||''}</td>
-      <td>${c["Status Logistico"]||''}</td>
-      <td>${c["Status Limite"]||''}</td>
-      <td>${c["Area Plantada"]||''}</td>
-      <td>${c.Regional||''}</td>
-      <td>${c["Unidade 3Tentos"]||''}</td>
-      <td>${c.Assessor||''}</td>
-      <td>${c["Limite Concedido"]||0}</td>
-      <td>${c["Limite Disponivel"]||0}</td>
-      <td>${c["% do Limite Disponivel"]||0}%</td>
-      <td>${c["Vencimento do limite"]?new Date(c["Vencimento do limite"]).toLocaleDateString("pt-BR"):""}</td>
+      <td>${c.nome}</td>
+      <td>${c.cpf || ''}</td>
+      <td>${c.userId || ''}</td>
+      <td>${c.statusLogistico || ''}</td>
+      <td>${c.statusLimite || ''}</td>
+      <td>${c.areaPlantada || ''}</td>
+      <td>${c.regional || ''}</td>
+      <td>${c.unidade || ''}</td>
+      <td>${c.assessor || ''}</td>
+      <td>${c.limiteConcedido}</td>
+      <td>${c.limiteDisponivel}</td>
+      <td>${c.percentualDisponivel}%</td>
+      <td>${c.vencimento?new Date(c.vencimento).toLocaleDateString("pt-BR"):''}</td>
       <td><button class="btn-update">Atualizar Status</button></td>`;
     tbody.appendChild(tr);
     tr.querySelector(".btn-update").addEventListener("click",()=>atualizarCartao(docSnap.id));
   });
 }
 
-// INSERIR CLIENTE MANUAL
-async function inserirCartao(){
-  const Cliente=await perguntar("Nome do Cliente:");
-  const CPF=await perguntar("CPF:");
-  const userID=await perguntar("User ID:");
-  const regional=await perguntar("Regional:","select",regionais);
-  const unidade=await perguntar("Unidade:","select",unidadesPorRegional[regional]);
-  const assessor=await perguntar("Assessor:","select",assessoresPorRegional[regional]);
-  const areaPlantada=await perguntar("Área Plantada:");
-  const limiteConcedido=parseFloat(await perguntar("Limite Concedido:","number"));
-  const limiteDisponivel=parseFloat(await perguntar("Limite Disponível:","number"));
-  const percentualDisponivel=((limiteDisponivel/limiteConcedido)*100).toFixed(2);
-  const statusLogistico=await perguntar("Status Logístico:","select",statusLogisticoOptions);
-  const statusLimite=await perguntar("Status Limite:","select",statusLimiteOptions);
-  const vencimentoInput=await perguntar("Data de Vencimento:","date");
-  const vencimento=vencimentoInput?new Date(vencimentoInput).toISOString():null;
+// Inserir CSV
+let csvData=null;
+function handleCSV(e){
+  const file=e.target.files[0];
+  if(!file) return;
+  const reader=new FileReader();
+  reader.onload=function(ev){
+    csvData=ev.target.result.split("\n").map(r=>r.split(";"));
+    alert("CSV carregado! Clique em 'Executar CSV' para inserir no banco.");
+  }
+  reader.readAsText(file);
+}
 
-  await addDoc(collection(db,"Cartao"),{
-    Cliente, CPF, "User ID":userID, Regional:regional, "Unidade 3Tentos":unidade, Assessor:assessor, "Area Plantada":areaPlantada,
-    "Limite Concedido":limiteConcedido, "Limite Disponivel":limiteDisponivel, "% do Limite Disponivel":percentualDisponivel,
-    "Status Logistico":statusLogistico, "Status Limite":statusLimite, "Vencimento do limite":vencimento, historico:[], primeiroLogin:false
-  });
-  alert("Cartão salvo com sucesso!");
+// Executar CSV
+async function executarCSV(){
+  if(!csvData) return alert("Nenhum CSV carregado!");
+  const headers=csvData[0];
+  for(let i=1;i<csvData.length;i++){
+    if(csvData[i].length<headers.length) continue;
+    const row=csvData[i];
+    const obj={
+      nome: row[0],
+      cpf: row[1],
+      userId: row[2],
+      statusLogistico: row[3],
+      statusLimite: row[4],
+      areaPlantada: row[5],
+      regional: row[6],
+      unidade: row[7],
+      assessor: row[8],
+      limiteConcedido: parseFloat(row[9]),
+      limiteDisponivel: parseFloat(row[10]),
+      percentualDisponivel: parseFloat(row[11]),
+      vencimento: new Date(row[12]).toISOString(),
+      historico: [],
+      primeiroLogin:false
+    };
+    await addDoc(collection(db,"Cartao"),obj);
+  }
+  alert("CSV importado com sucesso!");
   carregarCartoes();
 }
 
-// ATUALIZAR STATUS
+// Atualizar status
 async function atualizarCartao(id){
   const sLogistico=await perguntar("Atualizar Status Logístico:","select",statusLogisticoOptions);
   const sLimite=await perguntar("Atualizar Status Limite:","select",statusLimiteOptions);
   const ref=doc(db,"Cartao",id);
   await updateDoc(ref,{
-    "Status Logistico":sLogistico,
-    "Status Limite":sLimite,
-    historico:arrayUnion({data:new Date().toISOString(), "Status Logistico":sLogistico, "Status Limite":sLimite})
+    statusLogistico:sLogistico,
+    statusLimite:sLimite,
+    historico:arrayUnion({data:new Date().toISOString(),statusLogistico:sLogistico,statusLimite:sLimite})
   });
   alert("Status atualizado!");
   carregarCartoes();
 }
 
-// CSV
-let arquivoCSV=null;
-document.getElementById("csvInput")?.addEventListener("change",(e)=>arquivoCSV=e.target.files[0]);
-async function processarCSV(){
-  if(!arquivoCSV){ alert("Selecione um arquivo CSV primeiro!"); return; }
-  const text=await arquivoCSV.text();
-  const lines=text.split("\n").filter(l=>l.trim()!=="");
-  const headers=lines[0].split(";").map(h=>h.trim());
-  for(let i=1;i<lines.length;i++){
-    const values=lines[i].split(";").map(v=>v.trim());
-    const obj={};
-    headers.forEach((h,idx)=>obj[h]=values[idx]);
-    obj["Limite Concedido"]=parseFloat(obj["Limite Concedido"])||0;
-    obj["Limite Disponivel"]=parseFloat(obj["Limite Disponivel"])||0;
-    obj["% do Limite Disponivel"]=parseFloat(obj["% do Limite Disponivel"])||0;
-    obj["Vencimento do limite"]=obj["Vencimento do limite"]?new Date(obj["Vencimento do limite"]).toISOString():null;
-    await addDoc(collection(db,"Cartao"),obj);
-  }
-  alert("CSV processado!");
+// Deletar tudo exceto documento específico
+async function deletarTudo(){
+  if(!confirm("Deseja deletar todos os cartões exceto o protegido?")) return;
+  const snapshot = await getDocs(collection(db,"Cartao"));
+  snapshot.forEach(async docSnap=>{
+    if(docSnap.id!=="CB0WCT2tC1R7juMQ3sT9") await deleteDoc(doc(db,"Cartao",docSnap.id));
+  });
+  alert("Exclusão concluída!");
   carregarCartoes();
 }
-
-// DELETAR TODOS EXCETO
-async function deletarTodosExceto(idProtegido){
-  const snapshot=await getDocs(collection(db,"Cartao"));
-  for(const docSnap of snapshot.docs){
-    if(docSnap.id!==idProtegido) await deleteDoc(doc(db,"Cartao",docSnap.id));
-  }
-  alert("Documentos deletados exceto ID protegido.");
-  carregarCartoes();
-}
-
 </script>
 <style>
-body{height:100vh;margin:0;background:black;color:white;font-family:Arial,sans-serif;display:flex;justify-content:center;align-items:center;}
-#loginDiv{background:#222;padding:30px;border-radius:10px;text-align:center;display:flex;flex-direction:column;align-items:center;}
-#loginDiv input{margin:5px 0;padding:5px;width:180px;border-radius:5px;border:none;}
-#loginDiv button{margin-top:10px;padding:5px 15px;border-radius:5px;background:white;color:black;border:none;cursor:pointer;}
-#app{display:none;width:95%;max-width:1200px;margin:auto;}
+body{background:black;color:white;font-family:Arial,sans-serif;margin:0;padding:0;}
+#loginDiv{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:#222;padding:30px;border-radius:10px;text-align:center;}
+#loginDiv input{width:200px;margin:5px;padding:5px;border-radius:4px;border:none;}
+#loginDiv button{padding:5px 10px;border-radius:6px;border:none;background:white;color:black;cursor:pointer;margin-top:10px;}
+#app{display:none;padding:20px;}
 table{width:100%;border-collapse:collapse;margin-top:20px;}
 th,td{border:1px solid white;padding:8px;text-align:center;}
-button{background:white;color:black;border:none;padding:5px 10px;cursor:pointer;border-radius:6px;margin:2px;}
+button{cursor:pointer;border-radius:6px;border:none;padding:5px 10px;background:white;color:black;}
 .modal{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);display:flex;justify-content:center;align-items:center;}
 .modal-content{background:#222;padding:20px;border-radius:10px;text-align:center;}
 select,input{width:100%;padding:8px;margin:10px 0;}
@@ -199,39 +187,38 @@ select,input{width:100%;padding:8px;margin:10px 0;}
 </head>
 <body>
 <div id="loginDiv">
-  <h2>Login</h2>
-  <input type="email" id="email" placeholder="Email">
-  <input type="password" id="senha" placeholder="Senha">
-  <button onclick="loginUser()">Entrar</button>
+<h2>Login</h2>
+<input type="email" id="email" placeholder="Email"><br>
+<input type="password" id="senha" placeholder="Senha"><br>
+<button onclick="loginUser()">Entrar</button>
 </div>
 
 <div id="app">
-  <h1>Gestão de Cartões</h1>
-  <button onclick="inserirCartao()">Inserir Cliente/Cartão</button>
-  <input type="file" id="csvInput" accept=".csv">
-  <button onclick="processarCSV()">Executar CSV</button>
-  <button onclick="deletarTodosExceto('CB0WCT2tC1R7juMQ3sT9')">Deletar Todos Exceto ID Protegido</button>
-  <table>
-    <thead>
-      <tr>
-        <th>Cliente</th>
-        <th>CPF</th>
-        <th>User ID</th>
-        <th>Status Logístico</th>
-        <th>Status Limite</th>
-        <th>Área Plantada</th>
-        <th>Regional</th>
-        <th>Unidade 3Tentos</th>
-        <th>Assessor</th>
-        <th>Limite Concedido</th>
-        <th>Limite Disponível</th>
-        <th>% Disponível</th>
-        <th>Vencimento</th>
-        <th>Ações</th>
-      </tr>
-    </thead>
-    <tbody id="cartoes-body"></tbody>
-  </table>
+<h1>Gestão de Cartões</h1>
+<input type="file" id="csvInput" accept=".csv" onchange="handleCSV(event)">
+<button onclick="executarCSV()">Executar CSV</button>
+<button onclick="deletarTudo()">Deletar Tudo</button>
+<table>
+<thead>
+<tr>
+<th>Cliente</th>
+<th>CPF</th>
+<th>User ID</th>
+<th>Status Logístico</th>
+<th>Status Limite</th>
+<th>Área Plantada</th>
+<th>Regional</th>
+<th>Unidade</th>
+<th>Assessor</th>
+<th>Limite Concedido</th>
+<th>Limite Disponível</th>
+<th>% Disponível</th>
+<th>Vencimento</th>
+<th>Ações</th>
+</tr>
+</thead>
+<tbody id="cartoes-body"></tbody>
+</table>
 </div>
 </body>
 </html>
