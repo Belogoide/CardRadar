@@ -23,12 +23,12 @@ const auth = getAuth(app);
 
 // Opções fixas
 const regionais = ["1","2","3"];
-const unidadesPorRegional = { "1": ["A","B","C"], "2": ["D","E","F"], "3": ["G","H","I"] };
-const assessoresPorRegional = { "1": ["Joao"], "2": ["Pedro"], "3": ["Carlos"] };
+const unidadesPorRegional = { "1":["A","B","C"], "2":["D","E","F"], "3":["G","H","I"] };
+const assessoresPorRegional = { "1":["Joao"], "2":["Pedro"], "3":["Carlos"] };
 const statusLogisticoOptions = [
-  "1 -", "2 - Aguardando receber plástico na TC (Ijuí)", "3 - Aguardando receber plástico na TC (Sinop)",
-  "3.5 - Na TC Ijuí", "4 - Em Trânsito para a unidade", "5 - Aguardando Entrega ao cliente",
-  "6 - Cartão Não Entregue", "7 - Cartão Entregue", "8 - Não se Aplica"
+  "1 -","2 - Aguardando receber plástico na TC (Ijuí)","3 - Aguardando receber plástico na TC (Sinop)",
+  "3.5 - Na TC Ijuí","4 - Em Trânsito para a unidade","5 - Aguardando Entrega ao cliente",
+  "6 - Cartão Não Entregue","7 - Cartão Entregue","8 - Não se Aplica"
 ];
 const statusLimiteOptions = [
   "01 - Limite - Aguardando análise","02 - Limite - Análise de Crédito","03 - Limite - Aguardando retorno do GU",
@@ -41,10 +41,10 @@ const statusLimiteOptions = [
 
 // Popup genérico
 function perguntar(titulo, tipo="text", opcoes=[]) {
-  return new Promise(resolve => {
+  return new Promise(resolve=>{
     const modal = document.createElement("div");
-    modal.className = "modal";
-    modal.innerHTML = `
+    modal.className="modal";
+    modal.innerHTML=`
       <div class="modal-content">
         <h3>${titulo}</h3>
         ${tipo==="select" ? `<select id="modal-input">${opcoes.map(o=>`<option value="${o}">${o}</option>`).join("")}</select>` : `<input type="${tipo}" id="modal-input">`}
@@ -52,8 +52,8 @@ function perguntar(titulo, tipo="text", opcoes=[]) {
       </div>
     `;
     document.body.appendChild(modal);
-    document.getElementById("ok-btn").onclick = () => {
-      const valor = document.getElementById("modal-input").value;
+    document.getElementById("ok-btn").onclick=()=>{
+      const valor=document.getElementById("modal-input").value;
       modal.remove();
       resolve(valor);
     };
@@ -62,89 +62,80 @@ function perguntar(titulo, tipo="text", opcoes=[]) {
 
 // Carregar cartões
 async function carregarCartoes() {
-  const snapshot = await getDocs(collection(db, "Cartao"));
-  const tbody = document.querySelector("#cartoes-body");
-  tbody.innerHTML = "";
-  snapshot.forEach(docSnap => {
-    const c = docSnap.data();
-    const tr = document.createElement("tr");
-    tr.innerHTML = `
+  const snapshot=await getDocs(collection(db,"Cartao"));
+  const tbody=document.querySelector("#cartoes-body");
+  tbody.innerHTML="";
+  snapshot.forEach(docSnap=>{
+    const c=docSnap.data();
+    const tr=document.createElement("tr");
+    tr.innerHTML=`
       <td>${c.nome}</td>
-      <td>${c.cpf || ''}</td>
-      <td>${c.userId || ''}</td>
-      <td>${c.statusLogistico || ''}</td>
-      <td>${c.statusLimite || ''}</td>
-      <td>${c.areaPlantada || ''}</td>
-      <td>${c.regional || ''}</td>
-      <td>${c.unidade || ''}</td>
-      <td>${c.assessor || ''}</td>
+      <td>${c.cpf||''}</td>
+      <td>${c.userId||''}</td>
+      <td>${c.statusLogistico||''}</td>
+      <td>${c.statusLimite||''}</td>
+      <td>${c.areaPlantada||''}</td>
+      <td>${c.regional||''}</td>
+      <td>${c.unidade||''}</td>
+      <td>${c.assessor||''}</td>
       <td>${c.limiteConcedido}</td>
       <td>${c.limiteDisponivel}</td>
       <td>${c.percentualDisponivel}%</td>
-      <td>${c.vencimento ? new Date(c.vencimento).toLocaleDateString("pt-BR") : ''}</td>
-      <td>
-        <button class="btn" onclick="atualizarCartao('${docSnap.id}')">Atualizar Status</button>
-      </td>
+      <td>${c.vencimento?new Date(c.vencimento).toLocaleDateString("pt-BR"):""}</td>
+      <td><button class="btn" onclick="atualizarCartao('${docSnap.id}')">Atualizar Status</button></td>
     `;
     tbody.appendChild(tr);
   });
 }
 
-// Inserir cliente/cartão
+// Inserir cartão
 async function inserirCartao() {
-  const nome = await perguntar("Nome do Cliente:");
-  const cpf = await perguntar("CPF:");
-  const userId = await perguntar("User ID:");
-  const regional = await perguntar("Regional:", "select", regionais);
-  const unidade = await perguntar("Unidade:", "select", unidadesPorRegional[regional]);
-  const assessor = await perguntar("Assessor:", "select", assessoresPorRegional[regional]);
-  const areaPlantada = await perguntar("Área Plantada:");
-  const limiteConcedido = parseFloat(await perguntar("Limite Concedido:", "number"));
-  const limiteDisponivel = parseFloat(await perguntar("Limite Disponível:", "number"));
-  const percentualDisponivel = ((limiteDisponivel/limiteConcedido)*100).toFixed(2);
-  const statusLogistico = await perguntar("Status Logístico:", "select", statusLogisticoOptions);
-  const statusLimite = await perguntar("Status Limite:", "select", statusLimiteOptions);
-  const vencimentoInput = await perguntar("Data de Vencimento:", "date");
-  const vencimento = vencimentoInput ? new Date(vencimentoInput).toISOString() : null;
+  const nome=await perguntar("Nome do Cliente:");
+  const cpf=await perguntar("CPF:");
+  const userId=await perguntar("User ID:");
+  const regional=await perguntar("Regional:","select",regionais);
+  const unidade=await perguntar("Unidade:","select",unidadesPorRegional[regional]);
+  const assessor=await perguntar("Assessor:","select",assessoresPorRegional[regional]);
+  const areaPlantada=await perguntar("Área Plantada:");
+  const limiteConcedido=parseFloat(await perguntar("Limite Concedido:","number"));
+  const limiteDisponivel=parseFloat(await perguntar("Limite Disponível:","number"));
+  const percentualDisponivel=((limiteDisponivel/limiteConcedido)*100).toFixed(2);
+  const statusLogistico=await perguntar("Status Logístico:","select",statusLogisticoOptions);
+  const statusLimite=await perguntar("Status Limite:","select",statusLimiteOptions);
+  const vencimentoInput=await perguntar("Data de Vencimento:","date");
+  const vencimento=vencimentoInput?new Date(vencimentoInput).toISOString():null;
 
-  await addDoc(collection(db, "Cartao"), {
-    nome, cpf, userId, regional, unidade, assessor, areaPlantada,
-    limiteConcedido, limiteDisponivel, percentualDisponivel,
-    statusLogistico, statusLimite, vencimento,
-    historico: [], primeiroLogin: false
+  await addDoc(collection(db,"Cartao"),{
+    nome,cpf,userId,regional,unidade,assessor,areaPlantada,
+    limiteConcedido,limiteDisponivel,percentualDisponivel,
+    statusLogistico,statusLimite,vencimento,
+    historico:[],primeiroLogin:false
   });
-
   alert("Cartão salvo com sucesso!");
   carregarCartoes();
 }
 
-// Atualizar status
-async function atualizarCartao(id) {
-  const sLogistico = await perguntar("Atualizar Status Logístico:", "select", statusLogisticoOptions);
-  const sLimite = await perguntar("Atualizar Status Limite:", "select", statusLimiteOptions);
-
-  const ref = doc(db, "Cartao", id);
-  await updateDoc(ref, {
-    statusLogistico: sLogistico,
-    statusLimite: sLimite,
-    historico: arrayUnion({
-      data: new Date().toISOString(),
-      statusLogistico: sLogistico,
-      statusLimite: sLimite
-    })
+// Atualizar
+async function atualizarCartao(id){
+  const sLogistico=await perguntar("Atualizar Status Logístico:","select",statusLogisticoOptions);
+  const sLimite=await perguntar("Atualizar Status Limite:","select",statusLimiteOptions);
+  const ref=doc(db,"Cartao",id);
+  await updateDoc(ref,{
+    statusLogistico:sLogistico,
+    statusLimite:sLimite,
+    historico:arrayUnion({data:new Date().toISOString(),statusLogistico:sLogistico,statusLimite:sLimite})
   });
-
   alert("Status atualizado!");
   carregarCartoes();
 }
 
-// Deletar todos exceto ID fixo
-async function deletarTudo() {
+// Deletar tudo
+async function deletarTudo(){
   if(!confirm("Deseja realmente apagar todos os registros?")) return;
-  const snapshot = await getDocs(collection(db, "Cartao"));
+  const snapshot=await getDocs(collection(db,"Cartao"));
   for(const docSnap of snapshot.docs){
-    if(docSnap.id !== "CB0WCT2tC1R7juMQ3sT9"){
-      await deleteDoc(doc(db, "Cartao", docSnap.id));
+    if(docSnap.id!=="CB0WCT2tC1R7juMQ3sT9"){
+      await deleteDoc(doc(db,"Cartao",docSnap.id));
     }
   }
   alert("Registros deletados!");
@@ -153,61 +144,55 @@ async function deletarTudo() {
 
 // CSV
 let arquivoCSV;
-document.addEventListener("DOMContentLoaded", ()=>{
-  document.getElementById('csv-file').addEventListener('change', e=>{
-    arquivoCSV = e.target.files[0];
+document.addEventListener("DOMContentLoaded",()=>{
+  document.getElementById('csv-file').addEventListener('change',e=>{
+    arquivoCSV=e.target.files[0];
   });
 });
-
-function parseDataCSV(str){
-  const d = new Date(str);
-  return isNaN(d.getTime()) ? null : d.toISOString();
-}
-
+function parseDataCSV(str){const d=new Date(str);return isNaN(d.getTime())?null:d.toISOString();}
 async function executarCSV(){
-  if(!arquivoCSV){ alert("Selecione um arquivo CSV primeiro!"); return; }
-  const text = await arquivoCSV.text();
-  const linhas = text.split(/\r?\n/);
-  linhas.shift(); // remove cabeçalho
+  if(!arquivoCSV){alert("Selecione CSV primeiro!");return;}
+  const text=await arquivoCSV.text();
+  const linhas=text.split(/\r?\n/);
+  linhas.shift(); // cabeçalho
   for(const linha of linhas){
     if(!linha.trim()) continue;
-    const campos = linha.split(";");
-    await addDoc(collection(db, "Cartao"), {
-      nome: campos[0],
-      cpf: campos[1],
-      userId: campos[2],
-      statusLogistico: campos[3],
-      statusLimite: campos[4],
-      areaPlantada: campos[5],
-      regional: campos[6],
-      unidade: campos[7],
-      assessor: campos[8],
-      limiteConcedido: parseFloat(campos[9]),
-      limiteDisponivel: parseFloat(campos[10]),
-      percentualDisponivel: parseFloat(campos[11]),
-      vencimento: parseDataCSV(campos[12]),
-      historico: [],
-      primeiroLogin: false
+    const campos=linha.split(";");
+    await addDoc(collection(db,"Cartao"),{
+      nome:campos[0],
+      cpf:campos[1],
+      userId:campos[2],
+      statusLogistico:campos[3],
+      statusLimite:campos[4],
+      areaPlantada:campos[5],
+      regional:campos[6],
+      unidade:campos[7],
+      assessor:campos[8],
+      limiteConcedido:parseFloat(campos[9]),
+      limiteDisponivel:parseFloat(campos[10]),
+      percentualDisponivel:parseFloat(campos[11]),
+      vencimento:parseDataCSV(campos[12]),
+      historico:[],
+      primeiroLogin:false
     });
   }
   alert("CSV importado com sucesso!");
   carregarCartoes();
 }
 
-// Login
+// Login Sistema
 async function loginSistema(){
-  const email = document.getElementById("login-email").value;
-  const senha = document.getElementById("login-senha").value;
+  const email=document.getElementById("login-email").value;
+  const senha=document.getElementById("login-senha").value;
   try{
-    const userCredential = await signInWithEmailAndPassword(auth,email,senha);
-    const user = userCredential.user;
+    await signInWithEmailAndPassword(auth,email,senha);
     document.getElementById("login-container").style.display="none";
     document.getElementById("app").style.display="block";
     carregarCartoes();
-  }catch(e){ alert("Erro de login: "+e.message);}
+  }catch(e){alert("Erro de login: "+e.message);}
 }
-
 </script>
+
 <style>
 body { background-color: black; color: white; font-family: Arial, sans-serif; margin:0; padding:0; }
 table { width: 100%; border-collapse: collapse; margin-top: 20px; }
@@ -223,10 +208,10 @@ select, input { width: 100%; padding: 8px; margin: 10px 0; border:1px solid whit
 <body>
 
 <div id="login-container">
-  <h2>Login</h2>
-  <input type="email" id="login-email" placeholder="Email">
-  <input type="password" id="login-senha" placeholder="Senha">
-  <button class="btn" onclick="loginSistema()">Entrar</button>
+<h2>Login</h2>
+<input type="email" id="login-email" placeholder="Email">
+<input type="password" id="login-senha" placeholder="Senha">
+<button class="btn" onclick="loginSistema()">Entrar</button>
 </div>
 
 <div id="app" style="display:none; padding:20px;">
@@ -238,25 +223,14 @@ select, input { width: 100%; padding: 8px; margin: 10px 0; border:1px solid whit
 <button class="btn" onclick="executarCSV()">Executar CSV</button>
 
 <table>
-  <thead>
-    <tr>
-      <th>Cliente</th>
-      <th>CPF</th>
-      <th>User ID</th>
-      <th>Status Logístico</th>
-      <th>Status Limite</th>
-      <th>Área Plantada</th>
-      <th>Regional</th>
-      <th>Unidade</th>
-      <th>Assessor</th>
-      <th>Limite Concedido</th>
-      <th>Limite Disponível</th>
-      <th>% Disponível</th>
-      <th>Vencimento</th>
-      <th>Ações</th>
-    </tr>
-  </thead>
-  <tbody id="cartoes-body"></tbody>
+<thead>
+<tr>
+<th>Cliente</th><th>CPF</th><th>User ID</th><th>Status Logístico</th><th>Status Limite</th>
+<th>Área Plantada</th><th>Regional</th><th>Unidade</th><th>Assessor</th>
+<th>Limite Concedido</th><th>Limite Disponível</th><th>% Disponível</th><th>Vencimento</th><th>Ações</th>
+</tr>
+</thead>
+<tbody id="cartoes-body"></tbody>
 </table>
 </div>
 
