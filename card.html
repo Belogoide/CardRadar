@@ -1,204 +1,538 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <title>Gestão de Limites</title>
+  <meta charset="utf-8" />
+  <title>Gestão de Cartões — Completo</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #f5f5f5;
-      margin: 0;
-      padding: 0;
+    :root{
+      --bg:#f4f6f9; --card:#fff; --accent:#222; --muted:#666;
+      --success:#1a9a3b;
     }
-    header {
-      background: #222;
-      color: #fff;
-      padding: 10px 20px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
+    *{box-sizing:border-box}
+    body{
+      margin:0; font-family:Arial,Helvetica,sans-serif; background:var(--bg); color:#222;
     }
-    header h1 {
-      margin: 0;
-      font-size: 20px;
+    .wrap{max-width:1100px; margin:32px auto; padding:20px;}
+    header{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+    header h1{margin:0;font-size:20px;color:var(--accent)}
+    .card{background:var(--card); border-radius:10px; padding:18px; box-shadow:0 6px 18px rgba(0,0,0,0.06)}
+    .login-grid{max-width:420px;margin:0 auto}
+    input[type="email"], input[type="password"], input[type="text"], input[type="number"], input[type="date"], select{
+      width:100%; padding:10px; margin:8px 0; border-radius:6px; border:1px solid #d7d7d7;
+      font-size:14px;
     }
-    main {
-      padding: 20px;
-    }
-    .card {
-      background: #fff;
-      padding: 20px;
-      border-radius: 10px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-      max-width: 500px;
-      margin: 20px auto;
-    }
-    input, button {
-      padding: 10px;
-      margin: 5px 0;
-      width: 100%;
-      border: 1px solid #ccc;
-      border-radius: 6px;
-      font-size: 14px;
-    }
-    button {
-      background: #222;
-      color: #fff;
-      cursor: pointer;
-    }
-    button:hover {
-      background: #444;
-    }
-    ul {
-      list-style: none;
-      padding: 0;
-    }
-    li {
-      background: #f9f9f9;
-      margin-bottom: 5px;
-      padding: 8px;
-      border-radius: 5px;
-      font-size: 14px;
-    }
-    .admin-only {
-      margin-top: 15px;
-      display: none;
+    button{padding:10px 12px;border-radius:6px;border:0;background:var(--accent);color:#fff;cursor:pointer}
+    button.secondary{background:#555}
+    .hidden{display:none}
+    .actions{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+    table{width:100%; border-collapse:collapse; margin-top:12px}
+    th,td{padding:8px;border:1px solid #e6e6e6;text-align:left;font-size:13px}
+    th{background:#fafafa}
+    tr:nth-child(even){background:#fbfbfb}
+    .admin-only{display:none}
+    .small {font-size:12px;color:var(--muted)}
+    .top-row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+    .file-input{display:inline-block}
+    @media(max-width:820px){
+      header{flex-direction:column;align-items:flex-start;gap:8px}
     }
   </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Gestão de Cartões</h1>
+      <div>
+        <span id="userEmailDisplay" class="small"></span>
+        <button id="logoutBtn" class="secondary hidden" onclick="logout()">Sair</button>
+      </div>
+    </header>
+
+    <!-- Login -->
+    <section id="loginSection" class="card login-grid">
+      <h2 style="margin:0 0 12px 0">Login</h2>
+      <input id="inputEmail" type="email" placeholder="Email" />
+      <input id="inputPassword" type="password" placeholder="Senha" />
+      <div class="actions">
+        <button onclick="login()">Entrar</button>
+      </div>
+      <p id="loginError" class="small" style="color:#b00020"></p>
+    </section>
+
+    <!-- Change password (first login) -->
+    <section id="firstLoginSection" class="card hidden" style="max-width:520px;margin:18px auto;">
+      <h2 style="margin-top:0">Primeiro acesso — alterar senha</h2>
+      <p class="small">Para segurança, defina uma nova senha antes de acessar o sistema.</p>
+      <input id="newPassword" type="password" placeholder="Nova senha (mínimo 6 caracteres)" />
+      <input id="confirmNewPassword" type="password" placeholder="Confirme a nova senha" />
+      <div class="actions">
+        <button onclick="handleFirstLoginSetPassword()">Salvar nova senha</button>
+      </div>
+      <p id="firstLoginMsg" class="small" style="color:#b00020"></p>
+    </section>
+
+    <!-- App -->
+    <section id="appSection" class="card hidden" style="margin-top:20px;">
+      <div class="top-row">
+        <div style="flex:1">
+          <h2 style="margin:0 0 6px 0">Lista de Cartões</h2>
+          <p class="small">A tabela abaixo mostra os cartões que você tem permissão para visualizar.</p>
+        </div>
+
+        <!-- Admin actions -->
+        <div id="adminControls" class="admin-only" style="text-align:right">
+          <div style="margin-bottom:8px">
+            <button onclick="showAddForm()">Inserir Cartão</button>
+            <button onclick="deleteAllExceptProtected()" style="background:#b00020">Deletar Todos</button>
+          </div>
+
+          <div style="display:flex;gap:8px;align-items:center">
+            <input id="csvFileInput" class="file-input" type="file" accept=".csv" />
+            <button onclick="runCSV()" title="Importar CSV (admin)">Executar CSV</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Add/Edit form (admin only) -->
+      <div id="cardForm" class="hidden" style="margin-top:12px;border:1px solid #eee;padding:12px;border-radius:8px">
+        <h3 style="margin:0 0 8px 0">Inserir / Editar Cartão</h3>
+        <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">
+          <input id="f_nome" placeholder="Nome do Cliente" />
+          <input id="f_cpf" placeholder="CPF" />
+          <input id="f_regional" placeholder="Regional" />
+          <input id="f_unidade" placeholder="Unidade" />
+          <input id="f_assessor" placeholder="Assessor" />
+          <input id="f_areaPlantada" placeholder="Área Plantada" />
+          <input id="f_limiteConcedido" type="number" placeholder="Limite Concedido" />
+          <input id="f_limiteDisponivel" type="number" placeholder="Limite Disponível" />
+          <select id="f_statusLogistico">
+            <option value="">Status Logístico</option>
+            <option>1 -</option>
+            <option>2 - Aguardando receber plástico na TC (Ijuí)</option>
+            <option>3 - Aguardando receber plástico na TC (Sinop)</option>
+            <option>3.5 - Na TC Ijuí</option>
+            <option>4 - Em Trânsito para a unidade</option>
+            <option>5 - Aguardando Entrega ao cliente</option>
+            <option>6 - Cartão Não Entregue</option>
+            <option>7 - Cartão Entregue</option>
+            <option>8 - Não se Aplica</option>
+          </select>
+          <select id="f_statusLimite">
+            <option value="">Status Limite</option>
+            <option>01 - Limite - Aguardando análise</option>
+            <option>02 - Limite - Análise de Crédito</option>
+            <option>03 - Limite - Aguardando retorno do GU</option>
+            <option>04 - Limite - Aguardando Validação Eduardo</option>
+            <option>05 - Limite Aprovado - Aguardando Solicitação App. (DESUSO)</option>
+            <option>06 - Limite - Aguardando aprovar limite Sinqia</option>
+            <option>07 - Limite - Aguardando aprovar limite WM</option>
+            <option>08 - Limite Aprovado - Aguardando matrícula (DESUSO)</option>
+            <option>09 - Limite Aprovado - Aguardando envio de contrato</option>
+            <option>10 - Limite Aprovado - Aguardando assinatura do contrato</option>
+            <option>11 - Limite Aprovado - Aguardando assinatura renovação</option>
+            <option>12 - Aguardando desbloqueio</option>
+            <option>13 - Desbloqueado sem utilização</option>
+            <option>14 - Ativo</option>
+            <option>15 - Limite - Cancelado</option>
+            <option>99 - NEGADO WM</option>
+          </select>
+          <input id="f_vencimento" type="date" />
+        </div>
+
+        <div style="margin-top:10px;display:flex;gap:8px">
+          <button onclick="saveCard()">Salvar</button>
+          <button class="secondary" onclick="hideAddForm()">Cancelar</button>
+        </div>
+        <p id="formMsg" class="small" style="color:#b00020"></p>
+      </div>
+
+      <!-- Table -->
+      <div style="overflow:auto;margin-top:12px">
+        <table id="cardsTable">
+          <thead>
+            <tr>
+              <th>Cliente</th>
+              <th>CPF</th>
+              <th>Status Logístico</th>
+              <th>Status Limite</th>
+              <th>Área Plantada</th>
+              <th>Regional</th>
+              <th>Unidade</th>
+              <th>Assessor</th>
+              <th>Limite Concedido</th>
+              <th>Limite Disponível</th>
+              <th>% Disponível</th>
+              <th>Vencimento</th>
+              <th>Ações</th>
+            </tr>
+          </thead>
+          <tbody id="cardsTbody"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-    import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
-    import { getFirestore, doc, getDoc, setDoc, collection, getDocs, addDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+    import {
+      getAuth,
+      signInWithEmailAndPassword,
+      signOut,
+      onAuthStateChanged,
+      updatePassword
+    } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
+    import {
+      getFirestore,
+      collection,
+      getDocs,
+      addDoc,
+      doc,
+      getDoc,
+      setDoc,
+      updateDoc,
+      deleteDoc
+    } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
-    // Configuração Firebase
-  const firebaseConfig = {
-  apiKey: "AIzaSyBKw2vWc6hwICs-yCsdqr1h4M1hmMUD0wE",
-  authDomain: "limites-fd5a6.firebaseapp.com",
-  projectId: "limites-fd5a6",
-  storageBucket: "limites-fd5a6.firebasestorage.app",
-  messagingSenderId: "51777731197",
-  appId: "1:51777731197:web:dbc68948e1825cc2aecf14"
-};
+    // ---------- CONFIG (substitua se necessário) ----------
+    const firebaseConfig = {
+      apiKey: "AIzaSyBKw2vWc6hwICs-yCsdqr1h4M1hmMUD0wE",
+      authDomain: "limites-fd5a6.firebaseapp.com",
+      projectId: "limites-fd5a6",
+      storageBucket: "limites-fd5a6.firebasestorage.app",
+      messagingSenderId: "51777731197",
+      appId: "1:51777731197:web:dbc68948e1825cc2aecf14"
+    };
+    // -------------------------------------------------------
 
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getFirestore(app);
 
-    // Login
-    async function loginSistema() {
-      const email = document.getElementById("email").value;
-      const senha = document.getElementById("senha").value;
+    // Protected id (não será deletado)
+    const PROTECTED_DOC_ID = "CB0WCT2tC1R7juMQ3sT9";
 
-      try {
-        const userCredential = await signInWithEmailAndPassword(auth, email, senha);
-        const user = userCredential.user;
+    // Mapagem manual de quais unidades cada usuário pode ver (editar conforme necessário)
+    // Ex.: "usuario@empresa.com": ["UnidadeA","UnidadeB"]
+    const unidadesPorUsuario = {
+      "usuario1@teste.com": ["A","B"],
+      "usuario2@teste.com": ["C"]
+    };
 
-        // Cria doc de usuario se não existir
+    // State
+    let currentUser = null;
+    let csvFile = null;
+    let editingDocId = null;
+
+    // DOM refs
+    const loginSection = document.getElementById("loginSection");
+    const appSection = document.getElementById("appSection");
+    const firstLoginSection = document.getElementById("firstLoginSection");
+    const userEmailDisplay = document.getElementById("userEmailDisplay");
+    const logoutBtn = document.getElementById("logoutBtn");
+    const adminControls = document.getElementById("adminControls");
+    const cardsTbody = document.getElementById("cardsTbody");
+    const cardForm = document.getElementById("cardForm");
+    const csvInput = document.getElementById("csvFileInput");
+
+    // file handler
+    csvInput.addEventListener("change", (e) => { csvFile = e.target.files[0]; });
+
+    // --- Auth state observer
+    onAuthStateChanged(auth, async (user) => {
+      currentUser = user;
+      if (user) {
+        // hide login, show app
+        loginSection.classList.add("hidden");
+        firstLoginSection.classList.add("hidden");
+        appSection.classList.remove("hidden");
+        logoutBtn.classList.remove("hidden");
+        userEmailDisplay.textContent = user.email;
+
+        // check if user document exists; if not, require first-login password change flow
         const userDocRef = doc(db, "Usuarios", user.uid);
-        const userSnap = await getDoc(userDocRef);
-        if (!userSnap.exists()) {
-          await setDoc(userDocRef, { primeiroLogin: true, email: user.email });
+        try {
+          const userSnap = await getDoc(userDocRef);
+          if (!userSnap.exists()) {
+            // require new password before continuing
+            firstLoginSection.classList.remove("hidden");
+            appSection.classList.add("hidden");
+            return;
+          }
+        } catch (err) {
+          // permission error reading Usuarios (shouldn't happen with rules allowing create/read)
+          alert("Erro ao verificar usuário: " + err.message);
+          // still attempt to show read-only view
         }
 
-      } catch (error) {
-        alert("Erro no login: " + error.message);
-      }
-    }
-
-    // Logout
-    async function logoutSistema() {
-      await signOut(auth);
-    }
-
-    // Carregar cartões
-    async function carregarCartoes() {
-      const querySnapshot = await getDocs(collection(db, "Cartao"));
-      const lista = document.getElementById("listaCartoes");
-      lista.innerHTML = "";
-      querySnapshot.forEach((doc) => {
-        const li = document.createElement("li");
-        li.textContent = JSON.stringify(doc.data());
-        lista.appendChild(li);
-      });
-    }
-
-    // Adicionar cartão (somente admin)
-    async function adicionarCartao() {
-      const numero = prompt("Número do cartão:");
-      if (!numero) return;
-      await addDoc(collection(db, "Cartao"), { numero });
-      carregarCartoes();
-    }
-
-    // Excluir todos os cartões (somente admin)
-    async function deletarCartoes() {
-      const confirmacao = confirm("Deseja realmente deletar todos os cartões?");
-      if (!confirmacao) return;
-      const querySnapshot = await getDocs(collection(db, "Cartao"));
-      for (const docItem of querySnapshot.docs) {
-        await deleteDoc(doc(db, "Cartao", docItem.id));
-      }
-      carregarCartoes();
-    }
-
-    // Controle de estado
-    onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        document.getElementById("loginDiv").style.display = "none";
-        document.getElementById("appDiv").style.display = "block";
-        document.getElementById("userEmail").textContent = user.email;
-
-        // Exibe botões admin apenas se for o email específico
+        // show admin controls only for admin email
         if (user.email === "teste@teste.com.br") {
           document.querySelectorAll(".admin-only").forEach(el => el.style.display = "block");
         } else {
           document.querySelectorAll(".admin-only").forEach(el => el.style.display = "none");
         }
 
-        carregarCartoes();
+        // load table
+        await carregarCartoes();
       } else {
-        document.getElementById("loginDiv").style.display = "block";
-        document.getElementById("appDiv").style.display = "none";
-        document.getElementById("email").value = "";
-        document.getElementById("senha").value = "";
+        // logged out
+        loginSection.classList.remove("hidden");
+        firstLoginSection.classList.add("hidden");
+        appSection.classList.add("hidden");
+        logoutBtn.classList.add("hidden");
+        userEmailDisplay.textContent = "";
       }
     });
 
-    window.loginSistema = loginSistema;
-    window.logoutSistema = logoutSistema;
-    window.adicionarCartao = adicionarCartao;
-    window.deletarCartoes = deletarCartoes;
+    // --- Login
+    async function login() {
+      const email = document.getElementById("inputEmail").value.trim();
+      const senha = document.getElementById("inputPassword").value;
+      document.getElementById("loginError").textContent = "";
+      if (!email || !senha) { document.getElementById("loginError").textContent = "Informe email e senha."; return; }
+
+      try {
+        await signInWithEmailAndPassword(auth, email, senha);
+        // onAuthStateChanged will handle next steps
+      } catch (err) {
+        document.getElementById("loginError").textContent = err.message;
+      }
+    }
+
+    // --- Logout
+    async function logout() {
+      await signOut(auth);
+      // UI updates handled by onAuthStateChanged
+    }
+
+    // --- First login: set new password and create Usuarios doc
+    async function handleFirstLoginSetPassword() {
+      const np = document.getElementById("newPassword").value;
+      const cp = document.getElementById("confirmNewPassword").value;
+      const msgEl = document.getElementById("firstLoginMsg");
+      msgEl.textContent = "";
+
+      if (!np || np.length < 6) { msgEl.textContent = "Senha deve ter ao menos 6 caracteres."; return; }
+      if (np !== cp) { msgEl.textContent = "Senhas não conferem."; return; }
+      if (!currentUser) { msgEl.textContent = "Usuário não autenticado."; return; }
+
+      try {
+        await updatePassword(currentUser, np);
+        // Create Usuarios doc (create permitted by rules for own uid)
+        await setDoc(doc(db, "Usuarios", currentUser.uid), { primeiroLogin: true, email: currentUser.email });
+        // Hide first login, show app
+        firstLoginSection.classList.add("hidden");
+        appSection.classList.remove("hidden");
+        // Show admin controls if admin
+        if (currentUser.email === "teste@teste.com.br") {
+          document.querySelectorAll(".admin-only").forEach(el => el.style.display = "block");
+        }
+        await carregarCartoes();
+      } catch (err) {
+        msgEl.textContent = "Erro: " + err.message;
+      }
+    }
+
+    // --- Carregar cartões (com filtro por unidade para usuários comuns) ---
+    async function carregarCartoes() {
+      cardsTbody.innerHTML = "";
+      try {
+        const snapshot = await getDocs(collection(db, "Cartao"));
+        const rows = [];
+        snapshot.forEach(s => {
+          const d = s.data();
+          d.__id = s.id;
+          rows.push(d);
+        });
+
+        const email = currentUser?.email || "";
+        const allowedUnits = unidadesPorUsuario[email] || null; // null = show all (if not found, show all? we will restrict: null => show none)
+        // We'll show all if the user is admin, else only allowedUnits if mapping exists.
+        for (const c of rows) {
+          if (email !== "teste@teste.com.br") {
+            if (!allowedUnits || !allowedUnits.includes((c.unidade || "").toString())) continue;
+          }
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td>${escapeHtml(c.nome || "")}</td>
+            <td>${escapeHtml(c.cpf || "")}</td>
+            <td>${escapeHtml(c.statusLogistico || "")}</td>
+            <td>${escapeHtml(c.statusLimite || "")}</td>
+            <td>${escapeHtml(c.areaPlantada || "")}</td>
+            <td>${escapeHtml(c.regional || "")}</td>
+            <td>${escapeHtml(c.unidade || "")}</td>
+            <td>${escapeHtml(c.assessor || "")}</td>
+            <td>${numFormat(c.limiteConcedido)}</td>
+            <td>${numFormat(c.limiteDisponivel)}</td>
+            <td>${c.percentualDisponivel != null ? escapeHtml(c.percentualDisponivel + "%") : ""}</td>
+            <td>${c.vencimento ? escapeHtml(new Date(c.vencimento).toLocaleDateString("pt-BR")) : ""}</td>
+            <td>${currentUser && currentUser.email === "teste@teste.com.br" ? `<button onclick="openEditForm('${c.__id}')">Editar</button>` : ""}</td>
+          `;
+          cardsTbody.appendChild(tr);
+        }
+      } catch (err) {
+        alert("Erro ao carregar cartões: " + err.message);
+      }
+    }
+
+    // --- Utilities ---
+    function escapeHtml(str) {
+      return String(str).replace(/[&<>"']/g, (m) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+    }
+    function numFormat(v){ if(v==null || v==="" || isNaN(Number(v))) return ""; return Number(v).toLocaleString("pt-BR", {minimumFractionDigits:2, maximumFractionDigits:2}) }
+
+    // --- Admin: show/hide add form ---
+    function showAddForm(){
+      editingDocId = null;
+      document.getElementById("formMsg").textContent = "";
+      document.getElementById("f_nome").value = "";
+      document.getElementById("f_cpf").value = "";
+      document.getElementById("f_regional").value = "";
+      document.getElementById("f_unidade").value = "";
+      document.getElementById("f_assessor").value = "";
+      document.getElementById("f_areaPlantada").value = "";
+      document.getElementById("f_limiteConcedido").value = "";
+      document.getElementById("f_limiteDisponivel").value = "";
+      document.getElementById("f_statusLogistico").value = "";
+      document.getElementById("f_statusLimite").value = "";
+      document.getElementById("f_vencimento").value = "";
+      cardForm.classList.remove("hidden");
+      cardForm.scrollIntoView({behavior:"smooth"});
+    }
+    function hideAddForm(){ cardForm.classList.add("hidden"); editingDocId = null; }
+
+    // --- Admin: save card (insert or update) ---
+    async function saveCard(){
+      if(!currentUser || currentUser.email !== "teste@teste.com.br") { alert("Apenas admin pode salvar."); return; }
+      const nome = document.getElementById("f_nome").value.trim();
+      const cpf = document.getElementById("f_cpf").value.trim();
+      const regional = document.getElementById("f_regional").value.trim();
+      const unidade = document.getElementById("f_unidade").value.trim();
+      const assessor = document.getElementById("f_assessor").value.trim();
+      const areaPlantada = document.getElementById("f_areaPlantada").value.trim();
+      const limiteConcedido = parseFloat(document.getElementById("f_limiteConcedido").value) || 0;
+      const limiteDisponivel = parseFloat(document.getElementById("f_limiteDisponivel").value) || 0;
+      const percentualDisponivel = limiteConcedido ? ((limiteDisponivel/limiteConcedido)*100).toFixed(2) : 0;
+      const statusLogistico = document.getElementById("f_statusLogistico").value;
+      const statusLimite = document.getElementById("f_statusLimite").value;
+      const vencimento = document.getElementById("f_vencimento").value ? new Date(document.getElementById("f_vencimento").value).toISOString() : null;
+
+      try {
+        if (editingDocId) {
+          await updateDoc(doc(db, "Cartao", editingDocId), {
+            nome, cpf, regional, unidade, assessor, areaPlantada,
+            limiteConcedido, limiteDisponivel, percentualDisponivel,
+            statusLogistico, statusLimite, vencimento
+          });
+          alert("Cartão atualizado.");
+        } else {
+          await addDoc(collection(db, "Cartao"), {
+            nome, cpf, regional, unidade, assessor, areaPlantada,
+            limiteConcedido, limiteDisponivel, percentualDisponivel,
+            statusLogistico, statusLimite, vencimento,
+            historico: []
+          });
+          alert("Cartão inserido.");
+        }
+        hideAddForm();
+        await carregarCartoes();
+      } catch (err) {
+        document.getElementById("formMsg").textContent = "Erro: " + err.message;
+      }
+    }
+
+    // --- Open edit form (admin) ---
+    async function openEditForm(docId){
+      if(!currentUser || currentUser.email !== "teste@teste.com.br") return alert("Apenas admin.");
+      editingDocId = docId;
+      try {
+        const s = await getDoc(doc(db, "Cartao", docId));
+        if(!s.exists()) return alert("Documento não encontrado.");
+        const data = s.data();
+        document.getElementById("f_nome").value = data.nome || "";
+        document.getElementById("f_cpf").value = data.cpf || "";
+        document.getElementById("f_regional").value = data.regional || "";
+        document.getElementById("f_unidade").value = data.unidade || "";
+        document.getElementById("f_assessor").value = data.assessor || "";
+        document.getElementById("f_areaPlantada").value = data.areaPlantada || "";
+        document.getElementById("f_limiteConcedido").value = data.limiteConcedido || "";
+        document.getElementById("f_limiteDisponivel").value = data.limiteDisponivel || "";
+        document.getElementById("f_statusLogistico").value = data.statusLogistico || "";
+        document.getElementById("f_statusLimite").value = data.statusLimite || "";
+        document.getElementById("f_vencimento").value = data.vencimento ? new Date(data.vencimento).toISOString().slice(0,10) : "";
+        cardForm.classList.remove("hidden");
+        cardForm.scrollIntoView({behavior:"smooth"});
+      } catch (err) {
+        alert("Erro ao abrir edição: " + err.message);
+      }
+    }
+
+    // --- Admin: delete all except protected ---
+    async function deleteAllExceptProtected(){
+      if(!currentUser || currentUser.email !== "teste@teste.com.br") return alert("Apenas admin.");
+      if(!confirm("Deseja realmente apagar todos os registros (exceto protegido)?")) return;
+      try {
+        const snap = await getDocs(collection(db, "Cartao"));
+        for (const docItem of snap.docs) {
+          if (docItem.id === PROTECTED_DOC_ID) continue;
+          await deleteDoc(doc(db, "Cartao", docItem.id));
+        }
+        alert("Operação concluída.");
+        await carregarCartoes();
+      } catch (err) {
+        alert("Erro ao deletar: " + err.message);
+      }
+    }
+
+    // --- Admin: CSV import ---
+    async function runCSV(){
+      if(!currentUser || currentUser.email !== "teste@teste.com.br") return alert("Apenas admin.");
+      if(!csvFile) return alert("Selecione um arquivo CSV primeiro.");
+      try {
+        const text = await csvFile.text();
+        const lines = text.split("\n").map(l=>l.trim()).filter(l=>l!=="");
+        const headers = lines[0].split(";").map(h=>h.trim());
+        for (let i=1;i<lines.length;i++){
+          const cols = lines[i].split(";");
+          const obj = {};
+          headers.forEach((h,idx)=> obj[h] = (cols[idx]||"").trim());
+          const venc = obj["Vencimento do limite"] ? new Date(obj["Vencimento do limite"]) : null;
+          await addDoc(collection(db, "Cartao"), {
+            nome: obj["Cliente"] || "",
+            cpf: obj["CPF"] || "",
+            regional: obj["Regional"] || "",
+            unidade: obj["Unidade 3Tentos"] || obj["Unidade"] || "",
+            assessor: obj["Assessor"] || "",
+            areaPlantada: obj["Area Plantada"] || "",
+            limiteConcedido: parseFloat(obj["Limite Concedido"])||0,
+            limiteDisponivel: parseFloat(obj["Limite Disponivel"])||0,
+            percentualDisponivel: parseFloat(obj["% do Limite Disponivel"])||0,
+            statusLogistico: obj["Status Logistico"] || "",
+            statusLimite: obj["Status Limite"] || "",
+            vencimento: venc ? venc.toISOString() : null,
+            historico: []
+          });
+        }
+        alert("CSV importado com sucesso.");
+        csvFile = null;
+        csvInput.value = "";
+        await carregarCartoes();
+      } catch (err) {
+        alert("Erro ao processar CSV: " + err.message);
+      }
+    }
+
+    // Expose a few functions for inline handlers
+    window.login = login;
+    window.logout = logout;
+    window.handleFirstLoginSetPassword = handleFirstLoginSetPassword;
+    window.showAddForm = showAddForm;
+    window.hideAddForm = hideAddForm;
+    window.saveCard = saveCard;
+    window.openEditForm = openEditForm;
+    window.deleteAllExceptProtected = deleteAllExceptProtected;
+    window.runCSV = runCSV;
+    window.carregarCartoes = carregarCartoes;
   </script>
-</head>
-<body>
-  <header>
-    <h1>Gestão de Limites</h1>
-    <span id="userEmail"></span>
-  </header>
-
-  <main>
-    <!-- Login -->
-    <div id="loginDiv" class="card">
-      <h2>Login</h2>
-      <input type="email" id="email" placeholder="Email"><br>
-      <input type="password" id="senha" placeholder="Senha"><br>
-      <button onclick="loginSistema()">Entrar</button>
-    </div>
-
-    <!-- App -->
-    <div id="appDiv" class="card" style="display:none;">
-      <h2>Cartões</h2>
-      <ul id="listaCartoes"></ul>
-
-      <!-- Botões apenas admin -->
-      <div class="admin-only">
-        <button onclick="adicionarCartao()">Adicionar Cartão</button>
-        <button onclick="deletarCartoes()">Excluir Todos os Cartões</button>
-      </div>
-
-      <button onclick="logoutSistema()">Sair</button>
-    </div>
-  </main>
 </body>
 </html>
-
