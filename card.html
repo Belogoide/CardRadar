@@ -178,40 +178,77 @@ let csvFile=null;
 document.getElementById("csvFileInput").addEventListener("change", e=>csvFile=e.target.files[0]);
 
 async function runCSV(){
-if(!csvFile){alert("Escolha um arquivo CSV"); return;}
-const reader=new FileReader();
-reader.onload=async e=>{
-const text=e.target.result;
-const lines=text.split(/\r?\n/).filter(l=>l.trim()!=="");
-if(lines.length<2){alert("CSV vazio ou sem dados válidos"); return;}
-const headers=lines[0].split(",").map(h=>h.trim());
-const batchAdd=[];
-for(let i=1;i<lines.length;i++){
-const values=lines[i].split(",").map(v=>v.trim());
-if(values.length!==headers.length) continue;
-const cardData={};
-headers.forEach((h,idx)=>{
-let val=values[idx];
-if(h==="limiteConcedido"||h==="limiteDisponivel") val=Number(val);
-if(h==="vencimento"){
-const p=val.split("/");
-if(p.length===3) val=`${p[2]}-${p[1].padStart(2,"0")}-${p[0].padStart(2,"0")}`;
-else val="";
+  if(!csvFile){ alert("Escolha um arquivo CSV"); return; }
+  const reader = new FileReader();
+  reader.onload = async e=>{
+    const text = e.target.result;
+    const lines = text.split(/\r?\n/).filter(l=>l.trim()!=="");
+    if(lines.length < 2){ alert("CSV vazio ou sem dados válidos"); return; }
+
+    // separador ;
+    const headers = lines[0].split(";").map(h=>h.trim());
+    const batchAdd = [];
+
+    for(let i=1; i<lines.length; i++){
+      const values = lines[i].split(";").map(v=>v.trim());
+      if(values.length !== headers.length) continue;
+
+      const cardData = {};
+      headers.forEach((h, idx)=>{
+        let val = values[idx];
+
+        // limpar valores monetários e porcentagem
+        if(h.includes("Limite") || h.includes("%")){
+          val = val.replace(/[R$%]/g,"").replace(",",".");
+          val = Number(val) || 0;
+        }
+
+        // data
+        if(h.toLowerCase().includes("vencimento")){
+          const partes = val.split("/");
+          if(partes.length===3) val = `${partes[2]}-${partes[1].padStart(2,"0")}-${partes[0].padStart(2,"0")}`;
+          else val = "";
+        }
+
+        // nomes simplificados para Firestore
+        const keyMap = {
+          "Cliente":"nome",
+          "CPF":"cpf",
+          "User ID":"userId",
+          "Status Logistico":"statusLogistico",
+          "Status Limite":"statusLimite",
+          "Area Plantada":"areaPlantada",
+          "Regional":"regional",
+          "Unidade 3Tentos":"unidade",
+          "Assessor":"assessor",
+          "Limite Concedido":"limiteConcedido",
+          "Limite Disponivel":"limiteDisponivel",
+          "% do Limite Disponivel":"percentDisponivel",
+          "Vencimento do limite":"vencimento"
+        };
+
+        const key = keyMap[h] || h;
+        cardData[key] = val;
+      });
+
+      batchAdd.push(cardData);
+    }
+
+    if(batchAdd.length === 0){ alert("Nenhum registro válido encontrado no CSV"); return; }
+
+    try{
+      for(const c of batchAdd){
+        await addDoc(collection(db,"Cartao"),c);
+      }
+      alert(`Importação concluída! ${batchAdd.length} cartões adicionados.`);
+      csvFile = null;
+      csvInput.value = "";
+      if(window.carregarCartoes) await window.carregarCartoes();
+    }catch(err){ alert("Erro ao importar CSV: " + err.message); }
+  };
+  reader.readAsText(csvFile);
 }
-cardData[h]=val;
-});
-batchAdd.push(cardData);
-}
-if(batchAdd.length===0){alert("Nenhum registro válido encontrado no CSV"); return;}
-try{
-for(const c of batchAdd) await addDoc(collection(db,"Cartao"),c);
-alert(`Importação concluída! ${batchAdd.length} cartões adicionados.`);
-csvFile=null; document.getElementById("csvFileInput").value="";
-await carregarCartoes();
-}catch(err){alert("Erro ao importar CSV: "+err.message);}
-}
-reader.readAsText(csvFile);
-}
+
 
 async function login(){
 const email=document.getElementById("inputEmail").value;
@@ -297,3 +334,4 @@ window.deleteAllExceptProtected=deleteAllExceptProtected;
 </script>
 </body>
 </html>
+
