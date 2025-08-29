@@ -5,38 +5,109 @@
   <title>Gestão de Cartões — Completo</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <style>
-    :root{
-      --bg:#f4f6f9; --card:#fff; --accent:#222; --muted:#666;
-      --success:#1a9a3b;
-    }
-    *{box-sizing:border-box}
-    body{
-      margin:0; font-family:Arial,Helvetica,sans-serif; background:var(--bg); color:#222;
-    }
-    .wrap{max-width:1100px; margin:32px auto; padding:20px;}
-    header{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
-    header h1{margin:0;font-size:20px;color:var(--accent)}
-    .card{background:var(--card); border-radius:10px; padding:18px; box-shadow:0 6px 18px rgba(0,0,0,0.06)}
-    .login-grid{max-width:420px;margin:0 auto}
-    input[type="email"], input[type="password"], input[type="text"], input[type="number"], input[type="date"], select{
-      width:100%; padding:10px; margin:8px 0; border-radius:6px; border:1px solid #d7d7d7;
-      font-size:14px;
-    }
-    button{padding:10px 12px;border-radius:6px;border:0;background:var(--accent);color:#fff;cursor:pointer}
-    button.secondary{background:#555}
-    .hidden{display:none}
-    .actions{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
-    table{width:100%; border-collapse:collapse; margin-top:12px}
-    th,td{padding:8px;border:1px solid #e6e6e6;text-align:left;font-size:13px}
-    th{background:#fafafa}
-    tr:nth-child(even){background:#fbfbfb}
-    .admin-only{display:none}
-    .small {font-size:12px;color:var(--muted)}
-    .top-row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
-    .file-input{display:inline-block}
-    @media(max-width:820px){
-      header{flex-direction:column;align-items:flex-start;gap:8px}
-    }
+   :root{
+  --bg:#000; /* fundo principal preto */
+  --card:#111; /* fundo dos cards/modais preto escuro */
+  --accent:#fff; /* textos principais brancos */
+  --muted:#ccc; /* textos secundários cinza claro */
+  --success:#1a9a3b;
+}
+
+body{
+  margin:0; 
+  font-family:Arial,Helvetica,sans-serif; 
+  background:var(--bg); 
+  color:var(--accent);
+}
+
+header h1{
+  color:var(--accent);
+}
+
+.card{
+  background:var(--card); 
+  border-radius:10px; 
+  padding:18px; 
+  box-shadow:0 0 0 1px #fff inset; /* borda branca para cards */
+  color:var(--accent);
+}
+
+input[type="email"], 
+input[type="password"], 
+input[type="text"], 
+input[type="number"], 
+input[type="date"], 
+select{
+  width:100%; 
+  padding:10px; 
+  margin:8px 0; 
+  border-radius:6px; 
+  border:1px solid #fff; /* borda branca */
+  background:#111; 
+  color:#fff; 
+  font-size:14px;
+}
+
+button{
+  padding:10px 12px;
+  border-radius:6px;
+  border:1px solid #fff; /* borda branca */
+  background:#000;
+  color:#fff;
+  cursor:pointer;
+}
+
+button.secondary{
+  background:#222;
+  border:1px solid #fff;
+  color:#fff;
+}
+
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+
+table{
+  width:100%; 
+  border-collapse:collapse; 
+  margin-top:12px;
+  color:#fff;
+}
+
+th, td{
+  padding:8px;
+  border:1px solid #fff;
+  text-align:left;
+  font-size:13px;
+}
+
+th{background:#111}
+
+tr:nth-child(even){background:#222}
+
+.small{font-size:12px;color:#ccc}
+
+.top-row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+
+/* Formulários pop-up / modais */
+#cardForm, #firstLoginSection{
+  border:1px solid #fff; /* borda branca */
+  background:var(--card);
+  color:#fff;
+}
+
+/* Botões ao passar mouse */
+button:hover{
+  background:#333;
+}
+
+/* File input */
+.file-input{
+  color:#fff;
+}
+
+@media(max-width:820px){
+  header{flex-direction:column;align-items:flex-start;gap:8px}
+}
+
   </style>
 </head>
 <body>
@@ -396,3 +467,4 @@
   </script>
 </body>
 </html>
+
