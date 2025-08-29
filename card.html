@@ -412,6 +412,24 @@
       };
       reader.readAsText(csvFile);
     }
+
+
+
+
+
+    // Expõe as funções para o HTML poder chamar via onclick
+window.runCSV = runCSV;
+window.showAddForm = showAddForm;
+window.hideAddForm = hideAddForm;
+window.saveCard = saveCard;
+window.editCard = editCard;
+window.deleteCard = deleteCard;
+window.deleteAllExceptProtected = deleteAllExceptProtected;
+window.login = login;
+window.logout = logout;
+window.handleFirstLoginSetPassword = handleFirstLoginSetPassword;
+
   </script>
 </body>
 </html>
+
