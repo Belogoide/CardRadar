@@ -4,9 +4,17 @@
 <meta charset="UTF-8">
 <title>Gestão de Cartões</title>
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, arrayUnion, query, where, deleteDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-import { getAuth, signInWithEmailAndPassword, updatePassword } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
+import { 
+  initializeApp 
+} from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+
+import { 
+  getFirestore, collection, addDoc, getDocs, doc, setDoc, updateDoc, arrayUnion, query, where, deleteDoc 
+} from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+
+import { 
+  getAuth, signInWithEmailAndPassword, updatePassword 
+} from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBKw2vWc6hwICs-yCsdqr1h4M1hmMUD0wE",
@@ -92,7 +100,9 @@ async function inserirCartao() {
   const vencimentoInput = prompt("Data de Vencimento (YYYY-MM-DD):");
   const vencimento = vencimentoInput ? new Date(vencimentoInput).toISOString() : null;
 
-  await addDoc(collection(db, "Cartao"), {
+  if(!userId) return alert("User ID é obrigatório!");
+
+  await setDoc(doc(db, "Cartao", userId), {  // <-- usar userId como ID do documento
     nome, cpf, userId, regional, unidade, assessor, areaPlantada,
     limiteConcedido, limiteDisponivel, percentualDisponivel,
     statusLogistico, statusLimite,
@@ -193,8 +203,6 @@ async function executarCSV() {
   carregarCartoes();
 }
 
-
-
 // Login
 function loginSistema() {
   const email = document.getElementById("login-email").value;
@@ -253,5 +261,3 @@ input, select { width:100%; padding:6px; margin:5px 0; border:1px solid white; b
 </div>
 </body>
 </html>
-
-
