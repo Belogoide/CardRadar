@@ -172,12 +172,43 @@ async function executarCSV() {
   carregarCartoes();
 }
 
-// Login
-function loginSistema() {
+// Login com forçar troca de senha
+async function loginSistema() {
   const email = document.getElementById("login-email").value;
   const senha = document.getElementById("login-senha").value;
+
   signInWithEmailAndPassword(auth,email,senha)
-    .then(()=> {
+    .then(async (userCredential) => {
+      const user = userCredential.user;
+
+      // Buscar o cartão/usuário correspondente no Firestore
+      const q = query(collection(db, "Cartao"), where("userId", "==", user.uid));
+      const snapshot = await getDocs(q);
+      if (snapshot.empty) {
+        alert("Usuário não encontrado no Firestore!");
+        return;
+      }
+
+      const docSnap = snapshot.docs[0];
+      const userData = docSnap.data();
+
+      // Verifica se é o primeiro login
+      if (!userData.primeiroLogin) {
+        let novaSenha = prompt("É seu primeiro login. Defina uma nova senha:");
+        if (!novaSenha) return alert("Senha não definida. Login cancelado.");
+
+        try {
+          await updatePassword(user, novaSenha); // Atualiza no Firebase Auth
+          await updateDoc(doc(db, "Cartao", docSnap.id), { primeiroLogin: true }); // Atualiza flag no Firestore
+          alert("Senha atualizada com sucesso! Faça login novamente.");
+          return;
+        } catch (err) {
+          alert("Erro ao atualizar senha: " + err.message);
+          return;
+        }
+      }
+
+      // Caso não seja o primeiro login, mostra app normalmente
       document.getElementById("login-container").style.display="none";
       document.getElementById("app").style.display="block";
       carregarCartoes();
