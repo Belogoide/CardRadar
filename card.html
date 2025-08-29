@@ -5,7 +5,7 @@
 <title>Gestão de Cartões</title>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, arrayUnion, query, where, deleteDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, arrayUnion, deleteDoc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 import { getAuth, signInWithEmailAndPassword, updatePassword } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
 
 const firebaseConfig = {
@@ -21,18 +21,7 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 
-// Opções fixas
-const regionais = ["1","2","3"];
-const unidadesPorRegional = {
-  "1": ["A","B","C"],
-  "2": ["D","E","F"],
-  "3": ["G","H","I"]
-};
-const assessoresPorRegional = {
-  "1": ["Joao"],
-  "2": ["Pedro"],
-  "3": ["Carlos"]
-};
+// --- Status ---
 const statusLogisticoOptions = [
   "1 -","2 - Aguardando receber plástico na TC (Ijuí)","3 - Aguardando receber plástico na TC (Sinop)",
   "3.5 - Na TC Ijuí","4 - Em Trânsito para a unidade","5 - Aguardando Entrega ao cliente",
@@ -47,7 +36,7 @@ const statusLimiteOptions = [
   "12 - Aguardando desbloqueio","13 - Desbloqueado sem utilização","14 - Ativo","15 - Limite - Cancelado","99 - NEGADO WM"
 ];
 
-// Carregar cartões
+// --- Carregar Cartões ---
 async function carregarCartoes() {
   const snapshot = await getDocs(collection(db, "Cartao"));
   const tbody = document.querySelector("#cartoes-body");
@@ -58,7 +47,6 @@ async function carregarCartoes() {
     tr.innerHTML = `
       <td>${c.nome}</td>
       <td>${c.cpf || ''}</td>
-      <td>${c.userId || ''}</td>
       <td>${c.statusLogistico || ''}</td>
       <td>${c.statusLimite || ''}</td>
       <td>${c.areaPlantada || ''}</td>
@@ -69,23 +57,22 @@ async function carregarCartoes() {
       <td>${c.limiteDisponivel}</td>
       <td>${c.percentualDisponivel}%</td>
       <td>${c.vencimento ? new Date(c.vencimento).toLocaleDateString("pt-BR") : ''}</td>
-      <td><button class="btn" onclick="atualizarCartao('${docSnap.id}')">Atualizar Status</button></td>
+      <td><button class="btn" onclick="abrirAtualizarStatus('${docSnap.id}')">Atualizar Status</button></td>
     `;
     tbody.appendChild(tr);
   });
 }
 
-// Inserir cliente/cartão
+// --- Inserir Cartão ---
 async function inserirCartao() {
   const nome = prompt("Nome do Cliente:");
   const cpf = prompt("CPF:");
-  const userId = prompt("User ID:");
-  const regional = prompt("Regional (1/2/3):");
+  const regional = prompt("Regional:");
   const unidade = prompt("Unidade:");
   const assessor = prompt("Assessor:");
   const areaPlantada = prompt("Área Plantada:");
-  const limiteConcedido = parseFloat(prompt("Limite Concedido:")) || 0;
-  const limiteDisponivel = parseFloat(prompt("Limite Disponível:")) || 0;
+  const limiteConcedido = parseFloat(prompt("Limite Concedido:"))||0;
+  const limiteDisponivel = parseFloat(prompt("Limite Disponível:"))||0;
   const percentualDisponivel = ((limiteDisponivel/limiteConcedido)*100).toFixed(2);
   const statusLogistico = prompt("Status Logístico:");
   const statusLimite = prompt("Status Limite:");
@@ -93,131 +80,86 @@ async function inserirCartao() {
   const vencimento = vencimentoInput ? new Date(vencimentoInput).toISOString() : null;
 
   await addDoc(collection(db, "Cartao"), {
-    nome, cpf, userId, regional, unidade, assessor, areaPlantada,
+    nome, cpf, regional, unidade, assessor, areaPlantada,
     limiteConcedido, limiteDisponivel, percentualDisponivel,
     statusLogistico, statusLimite,
-    vencimento,
-    historico: [],
-    primeiroLogin: false
+    vencimento, historico: []
   });
-
   alert("Cartão salvo com sucesso!");
   carregarCartoes();
 }
 
-// Atualizar cartão (status)
-async function atualizarCartao(id) {
-  const sLogistico = prompt("Atualizar Status Logístico:");
-  const sLimite = prompt("Atualizar Status Limite:");
-  const ref = doc(db, "Cartao", id);
-  await updateDoc(ref, {
-    statusLogistico: sLogistico,
-    statusLimite: sLimite,
-    historico: arrayUnion({
-      data: new Date().toISOString(),
-      statusLogistico: sLogistico,
-      statusLimite: sLimite
-    })
-  });
-  alert("Status atualizado!");
-  carregarCartoes();
+// --- Atualizar ---
+function abrirAtualizarStatus(id) {
+  const sLog = prompt("Novo Status Logístico:");
+  const sLim = prompt("Novo Status Limite:");
+  updateDoc(doc(db, "Cartao", id), {
+    statusLogistico: sLog,
+    statusLimite: sLim,
+    historico: arrayUnion({ data: new Date().toISOString(), statusLogistico: sLog, statusLimite: sLim })
+  }).then(()=> { alert("Atualizado!"); carregarCartoes(); });
 }
 
-// Deletar tudo exceto protegido
+// --- Deletar ---
 async function deletarTudo() {
   if(!confirm("Deseja realmente apagar todos os registros?")) return;
   const snapshot = await getDocs(collection(db, "Cartao"));
-  snapshot.forEach(async docSnap => {
-    if(docSnap.id !== "CB0WCT2tC1R7juMQ3sT9") {
-      await deleteDoc(doc(db, "Cartao", docSnap.id));
-    }
-  });
-  alert("Registros deletados (exceto o protegido)!");
+  snapshot.forEach(async docSnap => { if(docSnap.id!=="CB0WCT2tC1R7juMQ3sT9") await deleteDoc(doc(db,"Cartao",docSnap.id)); });
+  alert("Registros deletados (exceto protegido)!");
   carregarCartoes();
 }
 
-// CSV
+// --- CSV ---
 let csvFile;
-function importarCSV(input) { csvFile = input.files[0]; }
-
-async function executarCSV() {
-  if(!csvFile) return alert("Selecione um arquivo CSV!");
+function importarCSV(input){ csvFile=input.files[0]; }
+async function executarCSV(){
+  if(!csvFile) return alert("Selecione CSV!");
   const text = await csvFile.text();
   const lines = text.split("\n").filter(l=>l.trim()!=="");
   const headers = lines[0].split(";").map(h=>h.trim());
   for(let i=1;i<lines.length;i++){
     const row = lines[i].split(";");
     const obj = {};
-    headers.forEach((h,idx)=> obj[h] = row[idx]?.trim() || "");
-    let vencimento = obj["Vencimento do limite"] ? new Date(obj["Vencimento do limite"]) : null;
-    await addDoc(collection(db, "Cartao"), {
-      nome: obj["Cliente"],
-      cpf: obj["CPF"],
-      userId: obj["User ID"],
-      statusLogistico: obj["Status Logistico"],
-      statusLimite: obj["Status Limite"],
-      areaPlantada: obj["Area Plantada"],
-      regional: obj["Regional"],
-      unidade: obj["Unidade 3Tentos"],
-      assessor: obj["Assessor"],
-      limiteConcedido: parseFloat(obj["Limite Concedido"])||0,
-      limiteDisponivel: parseFloat(obj["Limite Disponivel"])||0,
-      percentualDisponivel: parseFloat(obj["% do Limite Disponivel"])||0,
-      vencimento: vencimento ? vencimento.toISOString() : null,
-      historico: [],
-      primeiroLogin: false
+    headers.forEach((h,idx)=> obj[h]=row[idx]?.trim()||"");
+    let venc = obj["Vencimento do limite"]?new Date(obj["Vencimento do limite"]):null;
+    await addDoc(collection(db,"Cartao"),{
+      nome: obj["Cliente"], cpf: obj["CPF"], statusLogistico: obj["Status Logistico"],
+      statusLimite: obj["Status Limite"], areaPlantada: obj["Area Plantada"], regional: obj["Regional"],
+      unidade: obj["Unidade 3Tentos"], assessor: obj["Assessor"], limiteConcedido: parseFloat(obj["Limite Concedido"])||0,
+      limiteDisponivel: parseFloat(obj["Limite Disponivel"])||0, percentualDisponivel: parseFloat(obj["% do Limite Disponivel"])||0,
+      vencimento: venc? venc.toISOString():null, historico: []
     });
   }
-  alert("CSV importado com sucesso!");
+  alert("CSV importado!");
   carregarCartoes();
 }
 
-// Login com forçar troca de senha
+// --- Login ---
 async function loginSistema() {
   const email = document.getElementById("login-email").value;
   const senha = document.getElementById("login-senha").value;
-
-  signInWithEmailAndPassword(auth,email,senha)
-    .then(async (userCredential) => {
-      const user = userCredential.user;
-
-      // Buscar o cartão/usuário correspondente no Firestore
-      const q = query(collection(db, "Cartao"), where("userId", "==", user.uid));
-      const snapshot = await getDocs(q);
-      if (snapshot.empty) {
-        alert("Usuário não encontrado no Firestore!");
+  signInWithEmailAndPassword(auth,email,senha).then(async uc=>{
+    const user = uc.user;
+    const userDoc = doc(db,"Usuarios",user.uid);
+    const snap = await getDoc(userDoc);
+    if(!snap.exists() || !snap.data().primeiroLogin){
+      let nova = prompt("Primeiro login: defina nova senha");
+      if(!nova) return alert("Senha não definida");
+      try {
+        await updatePassword(user,nova);
+        await setDoc(doc(db,"Usuarios",user.uid),{primeiroLogin:true});
+        alert("Senha alterada! Faça login novamente.");
         return;
-      }
-
-      const docSnap = snapshot.docs[0];
-      const userData = docSnap.data();
-
-      // Verifica se é o primeiro login
-      if (!userData.primeiroLogin) {
-        let novaSenha = prompt("É seu primeiro login. Defina uma nova senha:");
-        if (!novaSenha) return alert("Senha não definida. Login cancelado.");
-
-        try {
-          await updatePassword(user, novaSenha); // Atualiza no Firebase Auth
-          await updateDoc(doc(db, "Cartao", docSnap.id), { primeiroLogin: true }); // Atualiza flag no Firestore
-          alert("Senha atualizada com sucesso! Faça login novamente.");
-          return;
-        } catch (err) {
-          alert("Erro ao atualizar senha: " + err.message);
-          return;
-        }
-      }
-
-      // Caso não seja o primeiro login, mostra app normalmente
-      document.getElementById("login-container").style.display="none";
-      document.getElementById("app").style.display="block";
-      carregarCartoes();
-    })
-    .catch(e=> alert("Erro: "+e.message));
+      } catch(err){ alert("Erro: "+err.message); return; }
+    }
+    document.getElementById("login-container").style.display="none";
+    document.getElementById("app").style.display="block";
+    carregarCartoes();
+  }).catch(e=>alert("Erro: "+e.message));
 }
 
 window.inserirCartao = inserirCartao;
-window.atualizarCartao = atualizarCartao;
+window.abrirAtualizarStatus = abrirAtualizarStatus;
 window.deletarTudo = deletarTudo;
 window.importarCSV = importarCSV;
 window.executarCSV = executarCSV;
@@ -225,13 +167,13 @@ window.loginSistema = loginSistema;
 
 </script>
 <style>
-body { background-color:black; color:white; font-family:Arial,sans-serif; margin:0; }
-table { width:100%; border-collapse:collapse; margin-top:20px; }
-th, td { border:1px solid white; padding:8px; text-align:center; }
-button, .btn { background:white; color:black; border:none; padding:5px 10px; cursor:pointer; border-radius:6px; margin:5px; }
-input, select { width:100%; padding:6px; margin:5px 0; border:1px solid white; border-radius:4px; background:black; color:white; }
-#login-container { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:#222; padding:30px; border-radius:10px; text-align:center; width:300px; }
-#login-container h2 { margin-bottom:20px; }
+body{background:black;color:white;font-family:Arial,sans-serif;margin:0;}
+table{width:100%;border-collapse:collapse;margin-top:20px;}
+th,td{border:1px solid white;padding:8px;text-align:center;}
+button,.btn{background:white;color:black;border:none;padding:5px 10px;cursor:pointer;border-radius:6px;margin:5px;}
+input,select{width:100%;padding:6px;margin:5px 0;border:1px solid white;border-radius:4px;background:black;color:white;}
+#login-container{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:#222;padding:30px;border-radius:10px;text-align:center;width:300px;}
+#login-container h2{margin-bottom:20px;}
 </style>
 </head>
 <body>
@@ -242,7 +184,7 @@ input, select { width:100%; padding:6px; margin:5px 0; border:1px solid white; b
   <button onclick="loginSistema()">Entrar</button>
 </div>
 
-<div id="app" style="display:none; padding:20px;">
+<div id="app" style="display:none;padding:20px;">
   <h1>Gestão de Cartões</h1>
   <button onclick="inserirCartao()">Inserir Cliente/Cartão</button>
   <input type="file" accept=".csv" onchange="importarCSV(this)">
@@ -251,7 +193,7 @@ input, select { width:100%; padding:6px; margin:5px 0; border:1px solid white; b
   <table>
     <thead>
       <tr>
-        <th>Cliente</th><th>CPF</th><th>User ID</th><th>Status Logístico</th><th>Status Limite</th>
+        <th>Cliente</th><th>CPF</th><th>Status Logístico</th><th>Status Limite</th>
         <th>Área Plantada</th><th>Regional</th><th>Unidade</th><th>Assessor</th>
         <th>Limite Concedido</th><th>Limite Disponível</th><th>% Disponível</th><th>Vencimento</th><th>Ações</th>
       </tr>
