@@ -5,7 +5,7 @@
 <title>Gestão de Cartões</title>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-import { getFirestore, collection, addDoc, setDoc, getDocs, getDoc, doc, updateDoc, arrayUnion, query, where, deleteDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, arrayUnion, query, where, deleteDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 import { getAuth, signInWithEmailAndPassword, updatePassword } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
 
 const firebaseConfig = {
@@ -23,25 +23,35 @@ const auth = getAuth(app);
 
 // Opções fixas
 const regionais = ["1","2","3"];
-const unidadesPorRegional = { "1": ["A","B","C"], "2": ["D","E","F"], "3": ["G","H","I"] };
-const assessoresPorRegional = { "1": ["Joao"], "2": ["Pedro"], "3": ["Carlos"] };
-const statusLogisticoOptions = ["1 -","2 - Aguardando receber plástico na TC (Ijuí)","3 - Aguardando receber plástico na TC (Sinop)","3.5 - Na TC Ijuí","4 - Em Trânsito para a unidade","5 - Aguardando Entrega ao cliente","6 - Cartão Não Entregue","7 - Cartão Entregue","8 - Não se Aplica"];
-const statusLimiteOptions = ["01 - Limite - Aguardando análise","02 - Limite - Análise de Crédito","03 - Limite - Aguardando retorno do GU","04 - Limite - Aguardando Validação Eduardo","05 - Limite Aprovado - Aguardando Solicitação App. (DESUSO)","06 - Limite - Aguardando aprovar limite Sinqia","07 - Limite - Aguardando aprovar limite WM","08 - Limite Aprovado - Aguardando matrícula (DESUSO)","09 - Limite Aprovado - Aguardando envio de contrato","10 - Limite Aprovado - Aguardando assinatura do contrato","11 - Limite Aprovado - Aguardando assinatura renovação","12 - Aguardando desbloqueio","13 - Desbloqueado sem utilização","14 - Ativo","15 - Limite - Cancelado","99 - NEGADO WM"];
+const unidadesPorRegional = {
+  "1": ["A","B","C"],
+  "2": ["D","E","F"],
+  "3": ["G","H","I"]
+};
+const assessoresPorRegional = {
+  "1": ["Joao"],
+  "2": ["Pedro"],
+  "3": ["Carlos"]
+};
+const statusLogisticoOptions = [
+  "1 -","2 - Aguardando receber plástico na TC (Ijuí)","3 - Aguardando receber plástico na TC (Sinop)",
+  "3.5 - Na TC Ijuí","4 - Em Trânsito para a unidade","5 - Aguardando Entrega ao cliente",
+  "6 - Cartão Não Entregue","7 - Cartão Entregue","8 - Não se Aplica"
+];
+const statusLimiteOptions = [
+  "01 - Limite - Aguardando análise","02 - Limite - Análise de Crédito","03 - Limite - Aguardando retorno do GU",
+  "04 - Limite - Aguardando Validação Eduardo","05 - Limite Aprovado - Aguardando Solicitação App. (DESUSO)",
+  "06 - Limite - Aguardando aprovar limite Sinqia","07 - Limite - Aguardando aprovar limite WM",
+  "08 - Limite Aprovado - Aguardando matrícula (DESUSO)","09 - Limite Aprovado - Aguardando envio de contrato",
+  "10 - Limite Aprovado - Aguardando assinatura do contrato","11 - Limite Aprovado - Aguardando assinatura renovação",
+  "12 - Aguardando desbloqueio","13 - Desbloqueado sem utilização","14 - Ativo","15 - Limite - Cancelado","99 - NEGADO WM"
+];
 
 // Carregar cartões
 async function carregarCartoes() {
+  const snapshot = await getDocs(collection(db, "Cartao"));
   const tbody = document.querySelector("#cartoes-body");
   tbody.innerHTML = "";
-
-  let snapshot;
-  // Permissão: admin vê tudo, outros podem filtrar
-  if(window.usuarioLogado && window.usuarioLogado.role === "admin") {
-    snapshot = await getDocs(collection(db, "Cartao"));
-  } else {
-    const q = query(collection(db, "Cartao"), where("regional", "==", window.usuarioLogado?.regional || ""));
-    snapshot = await getDocs(q);
-  }
-
   snapshot.forEach(docSnap => {
     const c = docSnap.data();
     const tr = document.createElement("tr");
@@ -82,13 +92,13 @@ async function inserirCartao() {
   const vencimentoInput = prompt("Data de Vencimento (YYYY-MM-DD):");
   const vencimento = vencimentoInput ? new Date(vencimentoInput).toISOString() : null;
 
-  await setDoc(doc(db, "Cartao", userId), {
+  await addDoc(collection(db, "Cartao"), {
     nome, cpf, userId, regional, unidade, assessor, areaPlantada,
     limiteConcedido, limiteDisponivel, percentualDisponivel,
     statusLogistico, statusLimite,
     vencimento,
     historico: [],
-    primeiroLogin: true // força primeira troca de senha
+    primeiroLogin: false
   });
 
   alert("Cartão salvo com sucesso!");
@@ -133,36 +143,17 @@ function importarCSV(input) { csvFile = input.files[0]; }
 async function executarCSV() {
   if(!csvFile) return alert("Selecione um arquivo CSV!");
   const text = await csvFile.text();
-  const lines = text.split("\n").filter(l => l.trim() !== "");
-  const headers = lines[0].split(";").map(h => h.trim());
-
-  for(let i = 1; i < lines.length; i++) {
+  const lines = text.split("\n").filter(l=>l.trim()!=="");
+  const headers = lines[0].split(";").map(h=>h.trim());
+  for(let i=1;i<lines.length;i++){
     const row = lines[i].split(";");
     const obj = {};
-    headers.forEach((h, idx) => obj[h] = row[idx]?.trim() || "");
-
-    let vencimento = null;
-    if(obj["Vencimento do limite"]){
-      const parts = obj["Vencimento do limite"].split("/");
-      if(parts.length === 3){
-        const day = parseInt(parts[0],10);
-        const month = parseInt(parts[1],10) -1;
-        const year = parseInt(parts[2],10);
-        const dateObj = new Date(year, month, day);
-        if(!isNaN(dateObj)) vencimento = dateObj.toISOString();
-      } else {
-        const dateObj = new Date(obj["Vencimento do limite"]);
-        if(!isNaN(dateObj)) vencimento = dateObj.toISOString();
-      }
-    }
-
-    const userId = obj["User ID"];
-    if(!userId) continue;
-
-    await setDoc(doc(db,"Cartao",userId), {
+    headers.forEach((h,idx)=> obj[h] = row[idx]?.trim() || "");
+    let vencimento = obj["Vencimento do limite"] ? new Date(obj["Vencimento do limite"]) : null;
+    await addDoc(collection(db, "Cartao"), {
       nome: obj["Cliente"],
       cpf: obj["CPF"],
-      userId: userId,
+      userId: obj["User ID"],
       statusLogistico: obj["Status Logistico"],
       statusLimite: obj["Status Limite"],
       areaPlantada: obj["Area Plantada"],
@@ -172,12 +163,11 @@ async function executarCSV() {
       limiteConcedido: parseFloat(obj["Limite Concedido"])||0,
       limiteDisponivel: parseFloat(obj["Limite Disponivel"])||0,
       percentualDisponivel: parseFloat(obj["% do Limite Disponivel"])||0,
-      vencimento: vencimento,
+      vencimento: vencimento ? vencimento.toISOString() : null,
       historico: [],
-      primeiroLogin: true // força primeira troca
+      primeiroLogin: false
     });
   }
-
   alert("CSV importado com sucesso!");
   carregarCartoes();
 }
@@ -186,36 +176,13 @@ async function executarCSV() {
 function loginSistema() {
   const email = document.getElementById("login-email").value;
   const senha = document.getElementById("login-senha").value;
-
   signInWithEmailAndPassword(auth,email,senha)
-    .then(async (cred) => {
-      const user = cred.user;
-
-      // Pegar dados do Firestore
-      const userDoc = await getDoc(doc(db,"Usuarios",user.uid));
-      const userData = userDoc.exists() ? userDoc.data() : {};
-
-      // Se primeiro login, forçar troca de senha
-      if(userData.primeiroLogin){
-        const novaSenha = prompt("Este é seu primeiro login. Digite uma nova senha (mín 6 caracteres):");
-        if(novaSenha && novaSenha.length >= 6){
-          await updatePassword(user, novaSenha);
-          await updateDoc(doc(db,"Usuarios",user.uid), { primeiroLogin: false });
-          alert("Senha alterada com sucesso!");
-        } else {
-          alert("Senha inválida! Login cancelado.");
-          auth.signOut();
-          return;
-        }
-      }
-
-      window.usuarioLogado = { uid: user.uid, email: user.email, ...userData };
+    .then(()=> {
       document.getElementById("login-container").style.display="none";
       document.getElementById("app").style.display="block";
-
       carregarCartoes();
     })
-    .catch(e => alert("Erro: "+e.message));
+    .catch(e=> alert("Erro: "+e.message));
 }
 
 window.inserirCartao = inserirCartao;
