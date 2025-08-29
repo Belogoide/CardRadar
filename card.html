@@ -5,7 +5,6 @@
 <title>Gestão de Cartões — Completo</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
-/* --- Fonte personalizada --- */
 @font-face {
     font-family: 'JTU';
     src: url('./JTUSjIg1_i6t8kCHKm459Wlhyw (2).woff2') format('woff2');
@@ -13,12 +12,10 @@
     font-style: normal;
 }
 
-/* Aplica a fonte em todo o site */
 body, input, select, button, table, th, td, h1, h2, h3, p {
     font-family: 'JTU', Arial, Helvetica, sans-serif;
 }
 
-/* --- Regras existentes --- */
 :root {
     --bg:#000;
     --card:#111;
@@ -27,11 +24,7 @@ body, input, select, button, table, th, td, h1, h2, h3, p {
     --success:#1a9a3b;
 }
 * { box-sizing:border-box; }
-body {
-    margin:0;
-    background:var(--bg);
-    color:#fff;
-}
+body { margin:0; background:var(--bg); color:#fff; }
 .wrap { max-width:1100px; margin:32px auto; padding:20px; }
 header { display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; }
 header h1 { margin:0; font-size:20px; color:var(--accent); }
@@ -45,36 +38,49 @@ button { padding:10px 12px; border-radius:6px; border:1px solid #fff; background
 button.secondary { background:#555; color:#fff; border:1px solid #fff; }
 .hidden { display:none; }
 .actions { display:flex; gap:8px; flex-wrap:wrap; margin:10px 0; }
+
 table {
     width: 100%;
-    table-layout: auto; /* ajusta colunas automaticamente */
+    table-layout: fixed; /* divide colunas proporcionalmente */
     border-collapse: collapse;
     margin-top: 12px;
-    white-space: nowrap; /* impede quebra de linha */
 }
-
 th, td {
     padding: 8px;
     border: 1px solid #fff;
     text-align: left;
     font-size: 13px;
     color: #fff;
-    white-space: nowrap; /* impede quebra de linha dentro das células */
+    white-space: normal;
+    overflow-wrap: break-word;
 }
-
 th { background:#111; }
 tr:nth-child(even) { background:#222; }
-td { max-width: none; } /* remove limite de largura */
 
+/* Larguras fixas proporcionais para colunas */
+th:nth-child(1), td:nth-child(1) { width: 12%; }   /* Cliente */
+th:nth-child(2), td:nth-child(2) { width: 10%; }   /* CPF */
+th:nth-child(3), td:nth-child(3) { width: 10%; }   /* Status Logístico */
+th:nth-child(4), td:nth-child(4) { width: 12%; }   /* Status Limite */
+th:nth-child(5), td:nth-child(5) { width: 8%; }    /* Área Plantada */
+th:nth-child(6), td:nth-child(6) { width: 10%; }   /* Regional */
+th:nth-child(7), td:nth-child(7) { width: 10%; }   /* Unidade */
+th:nth-child(8), td:nth-child(8) { width: 8%; }    /* Assessor */
+th:nth-child(9), td:nth-child(9) { width: 10%; }   /* Limite Concedido */
+th:nth-child(10), td:nth-child(10) { width: 10%; } /* Limite Disponível */
+th:nth-child(11), td:nth-child(11) { width: 6%; }  /* % Disponível */
+th:nth-child(12), td:nth-child(12) { width: 10%; } /* Vencimento */
+th:nth-child(13), td:nth-child(13) { width: 8%; }  /* Ações */
 
-    
 .admin-only { display:none; }
 .small { font-size:12px; color:#ccc; }
 .top-row { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
 .file-input { display:inline-block; color:#000; }
+@media(max-width:1100px) {
+    th, td { font-size:12px; }
+}
 @media(max-width:820px) { header { flex-direction:column; align-items:flex-start; gap:8px; } }
 </style>
-
 </head>
 <body>
 <div class="wrap">
@@ -117,7 +123,6 @@ td { max-width: none; } /* remove limite de largura */
 <p class="small">A tabela abaixo mostra os cartões que você tem permissão para visualizar.</p>
 </div>
 
-<!-- Admin actions -->
 <div id="adminControls" class="admin-only" style="text-align:right">
 <div style="margin-bottom:8px">
 <button onclick="showAddForm()">Inserir Cartão</button>
@@ -130,7 +135,6 @@ td { max-width: none; } /* remove limite de largura */
 </div>
 </div>
 
-<!-- Add/Edit form (admin only) -->
 <div id="cardForm" class="hidden" style="margin-top:12px;border:2px solid #fff;padding:12px;border-radius:8px">
 <h3>Inserir / Editar Cartão</h3>
 <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">
@@ -182,8 +186,7 @@ td { max-width: none; } /* remove limite de largura */
 <p id="formMsg" class="small" style="color:#b00020"></p>
 </div>
 
-<!-- Table -->
-<div style="overflow:auto;margin-top:12px">
+<div style="margin-top:12px">
 <table id="cardsTable">
 <thead>
 <tr>
@@ -436,5 +439,6 @@ window.handleFirstLoginSetPassword = handleFirstLoginSetPassword;
 </script>
 </body>
 </html>
+
 
 
