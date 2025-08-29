@@ -39,28 +39,6 @@ const statusLimiteOptions = [
   "12 - Aguardando desbloqueio","13 - Desbloqueado sem utilização","14 - Ativo","15 - Limite - Cancelado","99 - NEGADO WM"
 ];
 
-// Popup genérico
-function perguntar(titulo, tipo="text", opcoes=[]) {
-  return new Promise(resolve => {
-    const modal = document.createElement("div");
-    modal.className = "modal";
-    modal.innerHTML = `
-      <div class="modal-content">
-        <h3>${titulo}</h3>
-        ${tipo==="select" ? `<select id="modal-input">${opcoes.map(o=>`<option value="${o}">${o}</option>`).join("")}</select>` 
-        : `<input type="${tipo}" id="modal-input">`}
-        <button class="btn">${tipo==="button"? "Ok":"Ok"}</button>
-      </div>
-    `;
-    document.body.appendChild(modal);
-    modal.querySelector(".btn").onclick = () => {
-      const valor = document.getElementById("modal-input").value;
-      modal.remove();
-      resolve(valor);
-    };
-  });
-}
-
 // Parse data dd/mm/yyyy para ISO
 function parseDataCSV(dataStr) {
   if (!dataStr || dataStr.trim() === "") return null;
@@ -101,19 +79,19 @@ async function carregarCartoes() {
 
 // Inserir cartão
 async function inserirCartao() {
-  const nome = await perguntar("Nome do Cliente:");
-  const cpf = await perguntar("CPF:");
-  const userId = await perguntar("User ID:");
-  const regional = await perguntar("Regional:", "select", regionais);
-  const unidade = await perguntar("Unidade:", "select", unidadesPorRegional[regional]);
-  const assessor = await perguntar("Assessor:", "select", assessoresPorRegional[regional]);
-  const areaPlantada = await perguntar("Área Plantada:");
-  const limiteConcedido = parseFloat(await perguntar("Limite Concedido:", "number"));
-  const limiteDisponivel = parseFloat(await perguntar("Limite Disponível:", "number"));
+  const nome = prompt("Nome do Cliente:");
+  const cpf = prompt("CPF:");
+  const userId = prompt("User ID:");
+  const regional = prompt("Regional (1,2,3):");
+  const unidade = prompt("Unidade:");
+  const assessor = prompt("Assessor:");
+  const areaPlantada = prompt("Área Plantada:");
+  const limiteConcedido = parseFloat(prompt("Limite Concedido:"));
+  const limiteDisponivel = parseFloat(prompt("Limite Disponível:"));
   const percentualDisponivel = ((limiteDisponivel/limiteConcedido)*100).toFixed(2);
-  const statusLogistico = await perguntar("Status Logístico:", "select", statusLogisticoOptions);
-  const statusLimite = await perguntar("Status Limite:", "select", statusLimiteOptions);
-  const vencimentoInput = await perguntar("Data de Vencimento (dd/mm/yyyy):","text");
+  const statusLogistico = prompt("Status Logístico:");
+  const statusLimite = prompt("Status Limite:");
+  const vencimentoInput = prompt("Data de Vencimento (dd/mm/yyyy):");
   const vencimento = parseDataCSV(vencimentoInput);
 
   await addDoc(collection(db, "Cartao"), {
@@ -128,8 +106,8 @@ async function inserirCartao() {
 
 // Atualizar Status
 async function atualizarCartao(id) {
-  const sLogistico = await perguntar("Atualizar Status Logístico:", "select", statusLogisticoOptions);
-  const sLimite = await perguntar("Atualizar Status Limite:", "select", statusLimiteOptions);
+  const sLogistico = prompt("Atualizar Status Logístico:");
+  const sLimite = prompt("Atualizar Status Limite:");
   const ref = doc(db, "Cartao", id);
   await updateDoc(ref, {
     statusLogistico: sLogistico,
@@ -166,7 +144,7 @@ async function importarCSV(event) {
   carregarCartoes();
 }
 
-// Deletar todos os documentos exceto um ID fixo
+// Deletar todos exceto fixo
 async function deletarTudo() {
   const snapshot = await getDocs(collection(db, "Cartao"));
   for (const docSnap of snapshot.docs) {
@@ -176,20 +154,24 @@ async function deletarTudo() {
   carregarCartoes();
 }
 
-// Login (simples)
-async function login() {
+// Login
+async function loginFunc() {
   const email = document.getElementById("login-email").value;
   const senha = document.getElementById("login-senha").value;
   try {
-    const userCredential = await signInWithEmailAndPassword(auth, email, senha);
-    const user = userCredential.user;
+    await signInWithEmailAndPassword(auth, email, senha);
     document.getElementById("login-container").style.display="none";
     document.getElementById("app").style.display="block";
     carregarCartoes();
   } catch(err) { alert("Erro no login: "+err.message);}
 }
 
+window.onload = () => {
+  document.getElementById('csv-file').addEventListener('change', importarCSV);
+  document.getElementById('login-btn').addEventListener('click', loginFunc);
+};
 </script>
+
 <style>
 body { background-color: black; color: white; font-family: Arial, sans-serif; margin:0; }
 table { width: 100%; border-collapse: collapse; margin-top: 20px; }
@@ -204,12 +186,13 @@ input, select { width: 90%; padding: 5px; margin: 5px 0; border: 1px solid white
 </style>
 </head>
 <body>
+
 <div id="login-container">
   <div id="login-box">
     <h2>Login</h2>
     <input type="email" id="login-email" placeholder="Email">
     <input type="password" id="login-senha" placeholder="Senha">
-    <button onclick="login()">Entrar</button>
+    <button id="login-btn">Entrar</button>
   </div>
 </div>
 
@@ -218,31 +201,17 @@ input, select { width: 90%; padding: 5px; margin: 5px 0; border: 1px solid white
 <input type="file" id="csv-file" accept=".csv">
 <button class="btn" onclick="document.getElementById('csv-file').click()">Importar CSV</button>
 <button class="btn" onclick="deletarTudo()">Deletar Tudo</button>
+<button class="btn" onclick="inserirCartao()">Inserir Cartão</button>
 <table>
   <thead>
     <tr>
-      <th>Cliente</th>
-      <th>CPF</th>
-      <th>User ID</th>
-      <th>Status Logístico</th>
-      <th>Status Limite</th>
-      <th>Área Plantada</th>
-      <th>Regional</th>
-      <th>Unidade</th>
-      <th>Assessor</th>
-      <th>Limite Concedido</th>
-      <th>Limite Disponível</th>
-      <th>% Disponível</th>
-      <th>Vencimento</th>
-      <th>Ações</th>
+      <th>Cliente</th><th>CPF</th><th>User ID</th><th>Status Logístico</th><th>Status Limite</th>
+      <th>Área Plantada</th><th>Regional</th><th>Unidade</th><th>Assessor</th>
+      <th>Limite Concedido</th><th>Limite Disponível</th><th>% Disponível</th><th>Vencimento</th><th>Ações</th>
     </tr>
   </thead>
   <tbody id="cartoes-body"></tbody>
 </table>
 </div>
-
-<script>
-document.getElementById('csv-file').addEventListener('change', importarCSV);
-</script>
 </body>
 </html>
