@@ -23,35 +23,20 @@ const auth = getAuth(app);
 
 // Opções fixas
 const regionais = ["1","2","3"];
-const unidadesPorRegional = {
-  "1": ["A","B","C"],
-  "2": ["D","E","F"],
-  "3": ["G","H","I"]
-};
-const assessoresPorRegional = {
-  "1": ["Joao"],
-  "2": ["Pedro"],
-  "3": ["Carlos"]
-};
+const unidadesPorRegional = { "1":["A","B","C"], "2":["D","E","F"], "3":["G","H","I"] };
+const assessoresPorRegional = { "1":["Joao"], "2":["Pedro"], "3":["Carlos"] };
 const statusLogisticoOptions = [
-  "1 -",
-  "2 - Aguardando receber plástico na TC (Ijuí)",
-  "3 - Aguardando receber plástico na TC (Sinop)",
-  "3.5 - Na TC Ijuí",
-  "4 - Em Trânsito para a unidade",
-  "5 - Aguardando Entrega ao cliente",
-  "6 - Cartão Não Entregue",
-  "7 - Cartão Entregue",
-  "8 - Não se Aplica"
+  "1 -","2 - Aguardando receber plástico na TC (Ijuí)","3 - Aguardando receber plástico na TC (Sinop)",
+  "3.5 - Na TC Ijuí","4 - Em Trânsito para a unidade","5 - Aguardando Entrega ao cliente",
+  "6 - Cartão Não Entregue","7 - Cartão Entregue","8 - Não se Aplica"
 ];
 const statusLimiteOptions = [
-  "01 - Limite - Aguardando análise","02 - Limite - Análise de Crédito",
-  "03 - Limite - Aguardando retorno do GU","04 - Limite - Aguardando Validação Eduardo",
-  "05 - Limite Aprovado - Aguardando Solicitação App. (DESUSO)","06 - Limite - Aguardando aprovar limite Sinqia",
-  "07 - Limite - Aguardando aprovar limite WM","08 - Limite Aprovado - Aguardando matrícula (DESUSO)",
-  "09 - Limite Aprovado - Aguardando envio de contrato","10 - Limite Aprovado - Aguardando assinatura do contrato",
-  "11 - Limite Aprovado - Aguardando assinatura renovação","12 - Aguardando desbloqueio",
-  "13 - Desbloqueado sem utilização","14 - Ativo","15 - Limite - Cancelado","99 - NEGADO WM"
+  "01 - Limite - Aguardando análise","02 - Limite - Análise de Crédito","03 - Limite - Aguardando retorno do GU",
+  "04 - Limite - Aguardando Validação Eduardo","05 - Limite Aprovado - Aguardando Solicitação App. (DESUSO)",
+  "06 - Limite - Aguardando aprovar limite Sinqia","07 - Limite - Aguardando aprovar limite WM",
+  "08 - Limite Aprovado - Aguardando matrícula (DESUSO)","09 - Limite Aprovado - Aguardando envio de contrato",
+  "10 - Limite Aprovado - Aguardando assinatura do contrato","11 - Limite Aprovado - Aguardando assinatura renovação",
+  "12 - Aguardando desbloqueio","13 - Desbloqueado sem utilização","14 - Ativo","15 - Limite - Cancelado","99 - NEGADO WM"
 ];
 
 // Popup genérico
@@ -75,7 +60,7 @@ function perguntar(titulo, tipo="text", opcoes=[]) {
   });
 }
 
-// Carregar cartões
+// Funções principais
 async function carregarCartoes() {
   const snapshot = await getDocs(collection(db, "Cartao"));
   const tbody = document.querySelector("#cartoes-body");
@@ -97,16 +82,13 @@ async function carregarCartoes() {
       <td>${c.limiteDisponivel}</td>
       <td>${c.percentualDisponivel}%</td>
       <td>${c.vencimento ? new Date(c.vencimento).toLocaleDateString("pt-BR") : ''}</td>
-      <td>
-        <button class="btn-update">Atualizar Status</button>
-      </td>
+      <td><button class="btn-update">Atualizar Status</button></td>
     `;
     tbody.appendChild(tr);
     tr.querySelector(".btn-update").addEventListener("click", () => atualizarCartao(docSnap.id));
   });
 }
 
-// Inserir cliente/cartão
 async function inserirCartao() {
   const nome = await perguntar("Nome do Cliente:");
   const cpf = await perguntar("CPF:");
@@ -126,81 +108,29 @@ async function inserirCartao() {
   await addDoc(collection(db, "Cartao"), {
     nome, cpf, userId, regional, unidade, assessor, areaPlantada,
     limiteConcedido, limiteDisponivel, percentualDisponivel,
-    statusLogistico, statusLimite,
-    vencimento,
-    historico: [],
-    primeiroLogin: false
+    statusLogistico, statusLimite, vencimento, historico: [], primeiroLogin:false
   });
-
   alert("Cartão salvo com sucesso!");
   carregarCartoes();
 }
 
-// Atualizar cartão (status)
 async function atualizarCartao(id) {
   const sLogistico = await perguntar("Atualizar Status Logístico:", "select", statusLogisticoOptions);
   const sLimite = await perguntar("Atualizar Status Limite:", "select", statusLimiteOptions);
-
   const ref = doc(db, "Cartao", id);
-  await updateDoc(ref, {
-    statusLogistico: sLogistico,
-    statusLimite: sLimite,
-    historico: arrayUnion({
-      data: new Date().toISOString(),
-      statusLogistico: sLogistico,
-      statusLimite: sLimite
-    })
-  });
-
+  await updateDoc(ref, { statusLogistico:sLogistico, statusLimite:sLimite, historico: arrayUnion({data:new Date().toISOString(), statusLogistico:sLogistico, statusLimite:sLimite}) });
   alert("Status atualizado!");
   carregarCartoes();
 }
 
-// Deletar tudo (exceto protegido)
 async function deletarTudo() {
-  const confirmacao = confirm("Deseja realmente deletar todos os registros?");
-  if (!confirmacao) return;
-
+  if (!confirm("Deseja realmente deletar todos os registros?")) return;
   const snapshot = await getDocs(collection(db, "Cartao"));
   for (const docSnap of snapshot.docs) {
-    if (docSnap.id !== "CB0WCT2tC1R7juMQ3sT9") {
-      await deleteDoc(doc(db, "Cartao", docSnap.id));
-    }
+    if (docSnap.id !== "CB0WCT2tC1R7juMQ3sT9") await deleteDoc(doc(db,"Cartao",docSnap.id));
   }
-  alert("Todos os registros foram deletados (exceto o protegido)!");
+  alert("Todos os registros deletados (exceto protegido)!");
   carregarCartoes();
-}
-
-// Login
-async function login() {
-  const email = document.getElementById("email-login").value;
-  const senha = document.getElementById("senha-login").value;
-  try {
-    const userCredential = await signInWithEmailAndPassword(auth, email, senha);
-    const user = userCredential.user;
-
-    const q = query(collection(db, "Cartao"), where("userId", "==", email));
-    const querySnapshot = await getDocs(q);
-
-    if (!querySnapshot.empty) {
-      const userDoc = querySnapshot.docs[0];
-      const data = userDoc.data();
-
-      if (data.primeiroLogin) {
-        const novaSenha = prompt("Troque sua senha:");
-        await updatePassword(user, novaSenha);
-        await updateDoc(doc(db, "Cartao", userDoc.id), { primeiroLogin: false });
-        alert("Senha atualizada! Faça login novamente.");
-        return login();
-      }
-    }
-
-    document.getElementById("app").style.display = "block";
-    document.getElementById("login-form").style.display = "none";
-    carregarCartoes();
-  } catch (error) {
-    alert("Erro ao autenticar: " + error.message);
-  }
 }
 
 // CSV
@@ -211,46 +141,57 @@ function importarCSV(event) {
   const reader = new FileReader();
   reader.onload = e => {
     csvData = e.target.result.split("\n").map(line => line.split(";"));
-    alert("CSV carregado! Clique em 'Executar CSV' para gravar no banco.");
+    alert("CSV carregado! Clique em 'Executar CSV'.");
   };
   reader.readAsText(file);
 }
 
 async function executarCSV() {
-  for (let i = 1; i < csvData.length; i++) {
+  for (let i=1;i<csvData.length;i++){
     const row = csvData[i];
-    if (!row || row.length < 13) continue;
+    if(!row || row.length<13) continue;
     const [nome, cpf, userId, statusLogistico, statusLimite, areaPlantada, regional, unidade, _, assessor, limiteConcedido, limiteDisponivel, percentualDisponivel, vencimento] = row;
-    await addDoc(collection(db, "Cartao"), {
-      nome, cpf, userId, statusLogistico, statusLimite,
-      areaPlantada, regional, unidade, assessor,
-      limiteConcedido: parseFloat(limiteConcedido),
-      limiteDisponivel: parseFloat(limiteDisponivel),
-      percentualDisponivel: parseFloat(percentualDisponivel),
-      vencimento: new Date(vencimento).toISOString(),
-      historico: [],
-      primeiroLogin: false
+    await addDoc(collection(db,"Cartao"), {
+      nome, cpf, userId, statusLogistico, statusLimite, areaPlantada, regional, unidade, assessor,
+      limiteConcedido: parseFloat(limiteConcedido), limiteDisponivel: parseFloat(limiteDisponivel),
+      percentualDisponivel: parseFloat(percentualDisponivel), vencimento: new Date(vencimento).toISOString(),
+      historico: [], primeiroLogin:false
     });
   }
-  alert("CSV importado com sucesso!");
+  alert("CSV executado e registros adicionados!");
   carregarCartoes();
 }
 
-window.onload = () => { document.getElementById("login-form").style.display = "block"; };
-window.inserirCartao = inserirCartao;
-window.atualizarCartao = atualizarCartao;
-window.deletarTudo = deletarTudo;
-window.importarCSV = importarCSV;
-window.executarCSV = executarCSV;
+// Login
+async function login() {
+  const email = document.getElementById("email-login").value;
+  const senha = document.getElementById("senha-login").value;
+  try {
+    const userCredential = await signInWithEmailAndPassword(auth,email,senha);
+    const user = userCredential.user;
+    document.getElementById("login-form").style.display="none";
+    document.getElementById("app").style.display="block";
+    carregarCartoes();
+  } catch(e){
+    alert("Login falhou: "+e.message);
+  }
+}
+
+window.onload = ()=>document.getElementById("login-form").style.display="block";
+window.inserirCartao=inserirCartao;
+window.atualizarCartao=atualizarCartao;
+window.deletarTudo=deletarTudo;
+window.importarCSV=importarCSV;
+window.executarCSV=executarCSV;
 
 </script>
 <style>
-body { background-color: black; color: white; font-family: Arial, sans-serif; }
+body { background-color: black; color: white; font-family: Arial, sans-serif; margin:0; padding:0; }
 table { width: 100%; border-collapse: collapse; margin-top: 20px; }
 th, td { border: 1px solid white; padding: 8px; text-align: center; }
-button { background: white; color: black; border: none; padding: 5px 10px; cursor: pointer; border-radius: 6px; }
-.modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; justify-content: center; align-items: center; }
-.modal-content { background: #222; padding: 20px; border-radius: 10px; text-align: center; }
+button { background: white; color: black; border: none; padding: 5px 10px; cursor: pointer; border-radius: 6px; margin:5px; }
+.modal { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.8); display:flex; justify-content:center; align-items:center; }
+.modal-content { background:#222; padding:20px; border-radius:10px; text-align:center; }
 select, input { width: 100%; padding: 8px; margin: 10px 0; }
 #login-form { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); background: #222; padding: 30px; border-radius: 10px; text-align: center; }
 #login-form input { width: 200px; margin-bottom: 15px; }
