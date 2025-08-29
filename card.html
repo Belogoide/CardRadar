@@ -21,40 +21,24 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 
-// Opções fixas
 const regionais = ["1","2","3"];
-const unidadesPorRegional = {
-  "1": ["A","B","C"],
-  "2": ["D","E","F"],
-  "3": ["G","H","I"]
-};
-const assessoresPorRegional = {
-  "1": ["Joao"],
-  "2": ["Pedro"],
-  "3": ["Carlos"]
-};
+const unidadesPorRegional = { "1": ["A","B","C"], "2": ["D","E","F"], "3": ["G","H","I"] };
+const assessoresPorRegional = { "1": ["Joao"], "2": ["Pedro"], "3": ["Carlos"] };
 const statusLogisticoOptions = [
-  "1 -",
-  "2 - Aguardando receber plástico na TC (Ijuí)",
-  "3 - Aguardando receber plástico na TC (Sinop)",
-  "3.5 - Na TC Ijuí",
-  "4 - Em Trânsito para a unidade",
-  "5 - Aguardando Entrega ao cliente",
-  "6 - Cartão Não Entregue",
-  "7 - Cartão Entregue",
-  "8 - Não se Aplica"
+  "1 -","2 - Aguardando receber plástico na TC (Ijuí)","3 - Aguardando receber plástico na TC (Sinop)",
+  "3.5 - Na TC Ijuí","4 - Em Trânsito para a unidade","5 - Aguardando Entrega ao cliente",
+  "6 - Cartão Não Entregue","7 - Cartão Entregue","8 - Não se Aplica"
 ];
 const statusLimiteOptions = [
-  "01 - Limite - Aguardando análise","02 - Limite - Análise de Crédito",
-  "03 - Limite - Aguardando retorno do GU","04 - Limite - Aguardando Validação Eduardo",
-  "05 - Limite Aprovado - Aguardando Solicitação App. (DESUSO)","06 - Limite - Aguardando aprovar limite Sinqia",
-  "07 - Limite - Aguardando aprovar limite WM","08 - Limite Aprovado - Aguardando matrícula (DESUSO)",
-  "09 - Limite Aprovado - Aguardando envio de contrato","10 - Limite Aprovado - Aguardando assinatura do contrato",
-  "11 - Limite Aprovado - Aguardando assinatura renovação","12 - Aguardando desbloqueio",
-  "13 - Desbloqueado sem utilização","14 - Ativo","15 - Limite - Cancelado","99 - NEGADO WM"
+  "01 - Limite - Aguardando análise","02 - Limite - Análise de Crédito","03 - Limite - Aguardando retorno do GU",
+  "04 - Limite - Aguardando Validação Eduardo","05 - Limite Aprovado - Aguardando Solicitação App. (DESUSO)",
+  "06 - Limite - Aguardando aprovar limite Sinqia","07 - Limite - Aguardando aprovar limite WM",
+  "08 - Limite Aprovado - Aguardando matrícula (DESUSO)","09 - Limite Aprovado - Aguardando envio de contrato",
+  "10 - Limite Aprovado - Aguardando assinatura do contrato","11 - Limite Aprovado - Aguardando assinatura renovação",
+  "12 - Aguardando desbloqueio","13 - Desbloqueado sem utilização","14 - Ativo","15 - Limite - Cancelado","99 - NEGADO WM"
 ];
 
-// POPUP genérico
+// Função popup genérico
 function perguntar(titulo, tipo="text", opcoes=[]) {
   return new Promise(resolve => {
     const modal = document.createElement("div");
@@ -100,7 +84,6 @@ async function carregarCartoes() {
       <td><button class="btn-update">Atualizar Status</button></td>
     `;
     tbody.appendChild(tr);
-
     tr.querySelector(".btn-update").addEventListener("click", () => atualizarCartao(docSnap.id));
   });
 }
@@ -135,7 +118,7 @@ async function inserirCartao() {
   carregarCartoes();
 }
 
-// Atualizar cartão (apenas status)
+// Atualizar status
 async function atualizarCartao(id) {
   const sLogistico = await perguntar("Atualizar Status Logístico:", "select", statusLogisticoOptions);
   const sLimite = await perguntar("Atualizar Status Limite:", "select", statusLimiteOptions);
@@ -150,104 +133,121 @@ async function atualizarCartao(id) {
       statusLimite: sLimite
     })
   });
-
   alert("Status atualizado!");
   carregarCartoes();
 }
 
-// Deletar todos exceto ID específico
-async function deletarTudoExceto() {
-  if(!confirm("Deseja realmente deletar todos os registros, exceto o ID específico?")) return;
-  const snapshot = await getDocs(collection(db, "Cartao"));
-  snapshot.forEach(async docSnap => {
-    if(docSnap.id !== "CB0WCT2tC1R7juMQ3sT9") {
-      await deleteDoc(doc(db,"Cartao",docSnap.id));
-    }
-  });
-  alert("Registros deletados!");
-  carregarCartoes();
-}
-
-// Importar CSV
+// CSV
 let csvData = [];
 function handleCSVUpload(event) {
   const file = event.target.files[0];
-  if(!file) return;
+  if (!file) return;
   const reader = new FileReader();
-  reader.onload = e => {
-    const lines = e.target.result.split("\n");
-    csvData = lines.map(line => line.trim()).filter(l => l).map(line => line.split(";"));
-    alert("CSV carregado. Clique em 'Executar CSV' para importar.");
+  reader.onload = (e) => {
+    csvData = e.target.result.split('\n').map(l => l.split(';'));
+    alert("CSV carregado! Clique em Executar CSV.");
   };
-  reader.readAsText(file);
+  reader.readAsText(file, 'ISO-8859-1');
 }
-
 async function executarCSV() {
-  for(const row of csvData) {
-    if(row.length < 13) continue;
-    const [nome, cpf, userId, statusLogistico, statusLimite, areaPlantada, regional, unidade, assessor, limiteConcedido, limiteDisponivel, percDisponivel, vencimento] = row;
-    await addDoc(collection(db, "Cartao"), {
-      nome, cpf, userId, statusLogistico, statusLimite, areaPlantada, regional, unidade, assessor,
-      limiteConcedido: parseFloat(limiteConcedido),
-      limiteDisponivel: parseFloat(limiteDisponivel),
-      percentualDisponivel: parseFloat(percDisponivel),
-      vencimento: new Date(vencimento).toISOString(),
+  if (csvData.length < 2) { alert("Nenhum dado para processar."); return; }
+  const headers = csvData[0];
+  for (let i = 1; i < csvData.length; i++) {
+    const row = csvData[i];
+    if (!row[0]) continue;
+    const obj = {
+      nome: row[0],
+      cpf: row[1],
+      userId: row[2],
+      statusLogistico: row[3],
+      statusLimite: row[4],
+      areaPlantada: row[5],
+      regional: row[6],
+      unidade: row[7],
+      assessor: row[8],
+      limiteConcedido: parseFloat(row[9]) || 0,
+      limiteDisponivel: parseFloat(row[10]) || 0,
+      percentualDisponivel: parseFloat(row[11]) || 0,
+      vencimento: row[12] ? new Date(row[12]).toISOString() : null,
       historico: [],
       primeiroLogin: false
-    });
+    };
+    await addDoc(collection(db, "Cartao"), obj);
   }
   alert("CSV importado com sucesso!");
   carregarCartoes();
 }
 
-// Login simples
+// Deletar todos exceto um
+async function deletarTudo() {
+  const snapshot = await getDocs(collection(db, "Cartao"));
+  snapshot.forEach(async docSnap => {
+    if (docSnap.id !== 'CB0WCT2tC1R7juMQ3sT9') await deleteDoc(doc(db, "Cartao", docSnap.id));
+  });
+  alert("Registros deletados!");
+  carregarCartoes();
+}
+
+// Login
 async function login() {
-  const email = document.getElementById("email-login").value;
-  const senha = document.getElementById("senha-login").value;
+  const email = document.getElementById("login-email").value;
+  const senha = document.getElementById("login-senha").value;
   try {
     const userCredential = await signInWithEmailAndPassword(auth, email, senha);
     const user = userCredential.user;
+
+    const q = query(collection(db, "Cartao"), where("userId", "==", email));
+    const querySnapshot = await getDocs(q);
+
+    if (!querySnapshot.empty) {
+      const userDoc = querySnapshot.docs[0];
+      const data = userDoc.data();
+
+      if (data.primeiroLogin) {
+        const novaSenha = prompt("Troque sua senha:");
+        await updatePassword(user, novaSenha);
+        await updateDoc(doc(db, "Cartao", userDoc.id), { primeiroLogin: false });
+        alert("Senha atualizada! Faça login novamente.");
+        return;
+      }
+    }
+
     document.getElementById("login-container").style.display = "none";
     document.getElementById("app").style.display = "block";
     carregarCartoes();
-  } catch (err) {
-    alert("Erro no login: "+err.message);
+  } catch (error) {
+    alert("Erro ao autenticar: " + error.message);
   }
 }
-
-window.onload = () => {};
-window.inserirCartao = inserirCartao;
-window.atualizarCartao = atualizarCartao;
-window.deletarTudoExceto = deletarTudoExceto;
-window.handleCSVUpload = handleCSVUpload;
-window.executarCSV = executarCSV;
-
 </script>
 <style>
-body { background-color: black; color: white; font-family: Arial, sans-serif; margin:0; height:100vh; display:flex; justify-content:center; align-items:center; }
-#login-container { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; background:#222; padding:20px; border-radius:10px; }
-input { padding:5px; width:200px; border-radius:5px; border:none; }
-button { padding:5px 10px; border-radius:5px; border:none; cursor:pointer; background:white; color:black; }
-#app { display:none; width:100%; max-width:1200px; margin:auto; }
-table { width:100%; border-collapse: collapse; margin-top:20px; }
-th, td { border:1px solid white; padding:8px; text-align:center; }
-.modal { position:fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.8); display:flex; justify-content:center; align-items:center; }
-.modal-content { background:#222; padding:20px; border-radius:10px; text-align:center; }
+body { background-color: black; color: white; font-family: Arial, sans-serif; margin:0; height:100vh; display:flex; align-items:center; justify-content:center; }
+table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+th, td { border: 1px solid white; padding: 8px; text-align: center; }
+button { background: white; color: black; border: none; padding: 5px 10px; cursor: pointer; border-radius: 6px; margin:5px; }
+.modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; justify-content: center; align-items: center; }
+.modal-content { background: #222; padding: 20px; border-radius: 10px; text-align: center; }
+select, input { width: 100%; padding: 8px; margin: 10px 0; }
+#login-container { display:flex; flex-direction:column; align-items:center; justify-content:center; width:300px; }
+#login-container input { width: 90%; margin-bottom:10px; }
+#app { display:none; width:95%; }
 </style>
 </head>
 <body>
 <div id="login-container">
-  <input type="email" id="email-login" placeholder="Email">
-  <input type="password" id="senha-login" placeholder="Senha">
-  <button onclick="login()">Entrar</button>
+<h2>Login</h2>
+<input type="email" id="login-email" placeholder="Email">
+<input type="password" id="login-senha" placeholder="Senha">
+<button onclick="login()">Entrar</button>
 </div>
 
 <div id="app">
 <h1>Gestão de Cartões</h1>
 <button onclick="inserirCartao()">Inserir Cliente/Cartão</button>
-<input type="file" accept=".csv" onchange="handleCSVUpload(event)">
+<input type="file" id="csv-file" accept=".csv" onchange="handleCSVUpload(event)">
 <button onclick="executarCSV()">Executar CSV</button>
-<button onclick="deletarTudoExceto()">Deletar Todos (exceto ID específico)</button>
+<button onclick="deletarTudo()">Deletar Todos</button>
+
 <table>
   <thead>
     <tr>
