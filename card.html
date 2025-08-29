@@ -25,7 +25,7 @@ body, input, select, button, table, th, td, h1, h2, h3, p {
 }
 * { box-sizing:border-box; }
 body { margin:0; background:var(--bg); color:#fff; }
-.wrap { max-width:1100px; margin:32px auto; padding:20px; }
+.wrap { width:100%; margin:0 auto; padding:10px; }
 header { display:flex; justify-content:space-between; align-items:center; margin-bottom:18px; }
 header h1 { margin:0; font-size:20px; color:var(--accent); }
 .card { background:var(--card); border-radius:10px; padding:18px; box-shadow:0 0 0 2px #fff; }
@@ -34,51 +34,34 @@ input[type="email"], input[type="password"], input[type="text"], input[type="num
     width:100%; padding:10px; margin:8px 0; border-radius:6px; border:1px solid #fff;
     font-size:14px; background:#000; color:#fff;
 }
-button { padding:10px 12px; border-radius:6px; border:1px solid #fff; background:var(--accent); color:#000; cursor:pointer; }
+button { padding:6px 10px; border-radius:6px; border:1px solid #fff; background:var(--accent); color:#000; cursor:pointer; }
 button.secondary { background:#555; color:#fff; border:1px solid #fff; }
 .hidden { display:none; }
 .actions { display:flex; gap:8px; flex-wrap:wrap; margin:10px 0; }
 
 table {
     width: 100%;
-    table-layout: fixed; /* divide colunas proporcionalmente */
+    table-layout: auto; /* colunas ajustam automaticamente */
     border-collapse: collapse;
     margin-top: 12px;
 }
+
 th, td {
-    padding: 8px;
-    border: 1px solid #fff;
-    text-align: left;
-    font-size: 13px;
-    color: #fff;
-    white-space: normal;
-    overflow-wrap: break-word;
+    padding:6px 8px;
+    border:1px solid #fff;
+    text-align:left;
+    font-size:12px;
+    color:#fff;
+    white-space: nowrap;   /* tudo em uma linha */
 }
+
 th { background:#111; }
 tr:nth-child(even) { background:#222; }
-
-/* Larguras fixas proporcionais para colunas */
-th:nth-child(1), td:nth-child(1) { width: 12%; }   /* Cliente */
-th:nth-child(2), td:nth-child(2) { width: 10%; }   /* CPF */
-th:nth-child(3), td:nth-child(3) { width: 10%; }   /* Status Logístico */
-th:nth-child(4), td:nth-child(4) { width: 12%; }   /* Status Limite */
-th:nth-child(5), td:nth-child(5) { width: 8%; }    /* Área Plantada */
-th:nth-child(6), td:nth-child(6) { width: 10%; }   /* Regional */
-th:nth-child(7), td:nth-child(7) { width: 10%; }   /* Unidade */
-th:nth-child(8), td:nth-child(8) { width: 8%; }    /* Assessor */
-th:nth-child(9), td:nth-child(9) { width: 10%; }   /* Limite Concedido */
-th:nth-child(10), td:nth-child(10) { width: 10%; } /* Limite Disponível */
-th:nth-child(11), td:nth-child(11) { width: 6%; }  /* % Disponível */
-th:nth-child(12), td:nth-child(12) { width: 10%; } /* Vencimento */
-th:nth-child(13), td:nth-child(13) { width: 8%; }  /* Ações */
 
 .admin-only { display:none; }
 .small { font-size:12px; color:#ccc; }
 .top-row { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
 .file-input { display:inline-block; color:#000; }
-@media(max-width:1100px) {
-    th, td { font-size:12px; }
-}
 @media(max-width:820px) { header { flex-direction:column; align-items:flex-start; gap:8px; } }
 </style>
 </head>
@@ -92,7 +75,6 @@ th:nth-child(13), td:nth-child(13) { width: 8%; }  /* Ações */
 </div>
 </header>
 
-<!-- Login -->
 <section id="loginSection" class="card login-grid">
 <h2>Login</h2>
 <input id="inputEmail" type="email" placeholder="Email">
@@ -103,7 +85,6 @@ th:nth-child(13), td:nth-child(13) { width: 8%; }  /* Ações */
 <p id="loginError" class="small" style="color:#b00020"></p>
 </section>
 
-<!-- Primeiro Login -->
 <section id="firstLoginSection" class="card hidden" style="max-width:520px;margin:18px auto;">
 <h2>Primeiro acesso — alterar senha</h2>
 <p class="small">Para segurança, defina uma nova senha antes de acessar o sistema.</p>
@@ -115,14 +96,12 @@ th:nth-child(13), td:nth-child(13) { width: 8%; }  /* Ações */
 <p id="firstLoginMsg" class="small" style="color:#b00020"></p>
 </section>
 
-<!-- App -->
 <section id="appSection" class="card hidden" style="margin-top:20px;">
 <div class="top-row">
 <div style="flex:1">
 <h2>Lista de Cartões</h2>
 <p class="small">A tabela abaixo mostra os cartões que você tem permissão para visualizar.</p>
 </div>
-
 <div id="adminControls" class="admin-only" style="text-align:right">
 <div style="margin-bottom:8px">
 <button onclick="showAddForm()">Inserir Cartão</button>
@@ -210,6 +189,7 @@ th:nth-child(13), td:nth-child(13) { width: 8%; }  /* Ações */
 </div>
 </section>
 </div>
+
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
@@ -439,6 +419,7 @@ window.handleFirstLoginSetPassword = handleFirstLoginSetPassword;
 </script>
 </body>
 </html>
+
 
 
 
