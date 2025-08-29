@@ -14,8 +14,7 @@ header h1{margin:0;font-size:20px;color:var(--accent)}
 .card{background:var(--card);border-radius:10px;padding:18px;box-shadow:0 0 0 2px #fff;}
 .login-grid{max-width:420px;margin:0 auto;}
 input[type="email"], input[type="password"], input[type="text"], input[type="number"], input[type="date"], select{
-width:100%;padding:10px;margin:8px 0;border-radius:6px;border:1px solid #fff;
-font-size:14px;background:#000;color:#fff;}
+width:100%;padding:10px;margin:8px 0;border-radius:6px;border:1px solid #fff;font-size:14px;background:#000;color:#fff;}
 button{padding:10px 12px;border-radius:6px;border:1px solid #fff;background:var(--accent);color:#000;cursor:pointer}
 button.secondary{background:#555;color:#fff;border:1px solid #fff}
 .hidden{display:none}
@@ -41,6 +40,7 @@ tr:nth-child(even){background:#222}
 </div>
 </header>
 
+<!-- Login -->
 <section id="loginSection" class="card login-grid">
 <h2>Login</h2>
 <input id="inputEmail" type="email" placeholder="Email">
@@ -51,6 +51,7 @@ tr:nth-child(even){background:#222}
 <p id="loginError" class="small" style="color:#b00020"></p>
 </section>
 
+<!-- Primeiro login -->
 <section id="firstLoginSection" class="card hidden" style="max-width:520px;margin:18px auto;">
 <h2>Primeiro acesso — alterar senha</h2>
 <p class="small">Para segurança, defina uma nova senha antes de acessar o sistema.</p>
@@ -62,6 +63,7 @@ tr:nth-child(even){background:#222}
 <p id="firstLoginMsg" class="small" style="color:#b00020"></p>
 </section>
 
+<!-- App -->
 <section id="appSection" class="card hidden" style="margin-top:20px;">
 <div class="top-row">
 <div style="flex:1">
@@ -80,6 +82,7 @@ tr:nth-child(even){background:#222}
 </div>
 </div>
 
+<!-- Formulario de cadastro/edição -->
 <div id="cardForm" class="hidden" style="margin-top:12px;border:2px solid #fff;padding:12px;border-radius:8px">
 <h3>Inserir / Editar Cartão</h3>
 <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">
@@ -131,6 +134,7 @@ tr:nth-child(even){background:#222}
 <p id="formMsg" class="small" style="color:#b00020"></p>
 </div>
 
+<!-- Tabela -->
 <div style="overflow:auto;margin-top:12px">
 <table id="cardsTable">
 <thead>
@@ -159,7 +163,7 @@ tr:nth-child(even){background:#222}
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
 import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-import { getAuth, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
+import { getAuth, signInWithEmailAndPassword, signOut, updatePassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
 
 const firebaseConfig = {
 apiKey:"AIzaSyBKw2vWc6hwICs-yCsdqr1h4M1hmMUD0wE",
@@ -174,56 +178,86 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 
-let csvFile=null;
-const csvInput = document.getElementById("csvFileInput");
-csvInput.addEventListener("change", e=>csvFile=e.target.files[0]);
+let csvFile = null;
+let currentUserEmail = "";
+
+const userUnitsMap = {
+"silmar.junior@3tentos.com.br":["Santa Bárbara do Sul","Saldanha Marinho","Colorado","Palmeira das Missões","Espumoso","Nonoai"],
+"douglas.lodi@3tentos.com.br":["Passo Fundo","Lagoa Vermelha","Vacaria","Erechim","Sananduva"],
+"giovana.lugoch@3tentos.com.br":["Ijui","Ajuricaba","Boa Vista do Cadeado","Catuipe","Coronel Barros","Maua","Campo Novo","Três de Maio","Horizontina"],
+"giovane.lopes@tentoscap.com.br":["Santo Augusto","Chiapetta","Eugenio de Castro","Giruá","Entre-Ijuis","São Luiz Gonzaga","Santo Antônio das Missões"],
+"alexandre.rocha@3tentos.com.br":["Augusto Pestana","Capão do Cipó","Joia","Santiago","Condor","Panambi","Julio de Castilhos","Cruz Alta","Fortaleza dos Valos","Ibiruba","Pejuçara","Tupanciretã"],
+"thiago.molina@3tentos.com.br":["Cachoeira do Sul","Santa Maria","São Vicente do Sul"],
+"marina.haertel@tentoscap.com.br":["Pelotas","Santa Vitoria do Palmar","Capivari","Camaqua","Canguçu"],
+"lorenzo.bratta@tentoscap.com.br":["Alegrete","Uruguaiana","Bagé","Dom Pedrito","Rosário do Sul","São Borja","São Gabriel"],
+"carlos.meurer@3tentos.com.br":["Alta Floresta","Matupa"],
+"matheus.poletto@tentoscap.com.br":["Porto dos Gauchos","Sinop"],
+"jessica.paula@3tentos.com.br":["Nova Ubiratã","Sorriso"],
+"joao.junior@3tentos.com.br":["Confresa"],
+"fabricio.santos@3tentos.com.br":["São Felix do Araguaia","Querência","Água Boa"]
+};
+
+// CSV input
+document.getElementById("csvFileInput").addEventListener("change", e=>csvFile=e.target.files[0]);
 
 async function runCSV(){
   if(!csvFile){ alert("Escolha um arquivo CSV"); return; }
-  const reader = new FileReader();
-  reader.onload = async e=>{
-    const text = e.target.result;
-    const lines = text.split(/\r?\n/).filter(l=>l.trim()!=="");
+  const reader=new FileReader();
+  reader.onload=async e=>{
+    const text=e.target.result;
+    const lines=text.split(/\r?\n/).filter(l=>l.trim()!=="");
     if(lines.length<2){ alert("CSV vazio ou sem dados válidos"); return; }
-    const headers = lines[0].split(";").map(h=>h.trim());
-    const batchAdd = [];
+
+    const headers=lines[0].split(";").map(h=>h.trim());
+    const batchAdd=[];
     for(let i=1;i<lines.length;i++){
       const values=lines[i].split(";").map(v=>v.trim());
       if(values.length!==headers.length) continue;
+
       const cardData={};
       headers.forEach((h,idx)=>{
-        let val = values[idx];
-        if(h.includes("Limite")||h.includes("%")) val = Number(val.replace(/[R$%]/g,"").replace(",","."))||0;
+        let val=values[idx];
+        if(h.includes("Limite")||h.includes("%")) val=Number(val.replace(/[R$%]/g,"").replace(",",".")||0);
         if(h.toLowerCase().includes("vencimento")){
-          const p=val.split("/"); val=(p.length===3)?`${p[2]}-${p[1].padStart(2,"0")}-${p[0].padStart(2,"0")}`:"";
+          const partes=val.split("/");
+          if(partes.length===3) val=`${partes[2]}-${partes[1].padStart(2,"0")}-${partes[0].padStart(2,"0")}`;
+          else val="";
         }
-        const keyMap = {
-          "Cliente":"nome","CPF":"cpf","User ID":"userId","Status Logistico":"statusLogistico","Status Limite":"statusLimite",
-          "Area Plantada":"areaPlantada","Regional":"regional","Unidade 3Tentos":"unidade","Assessor":"assessor",
-          "Limite Concedido":"limiteConcedido","Limite Disponivel":"limiteDisponivel","% do Limite Disponivel":"percentDisponivel",
-          "Vencimento do limite":"vencimento"
+        const keyMap={
+          "Cliente":"nome","CPF":"cpf","User ID":"userId",
+          "Status Logistico":"statusLogistico","Status Limite":"statusLimite",
+          "Area Plantada":"areaPlantada","Regional":"regional",
+          "Unidade 3Tentos":"unidade","Assessor":"assessor",
+          "Limite Concedido":"limiteConcedido","Limite Disponivel":"limiteDisponivel",
+          "% do Limite Disponivel":"percentDisponivel","Vencimento do limite":"vencimento"
         };
-        cardData[keyMap[h]||h]=val;
+        const key=keyMap[h]||h;
+        cardData[key]=val;
       });
       batchAdd.push(cardData);
     }
+
     if(batchAdd.length===0){ alert("Nenhum registro válido encontrado no CSV"); return; }
+
     try{
       for(const c of batchAdd) await addDoc(collection(db,"Cartao"),c);
       alert(`Importação concluída! ${batchAdd.length} cartões adicionados.`);
-      csvFile=null; csvInput.value="";
+      csvFile=null;
+      document.getElementById("csvFileInput").value="";
       await carregarCartoes();
     }catch(err){ alert("Erro ao importar CSV: "+err.message);}
   };
   reader.readAsText(csvFile);
 }
 
+// Login
 async function login(){
   const email=document.getElementById("inputEmail").value;
   const pass=document.getElementById("inputPassword").value;
   document.getElementById("loginError").textContent="";
   try{
     const userCred=await signInWithEmailAndPassword(auth,email,pass);
+    currentUserEmail=email.toLowerCase();
     document.getElementById("loginSection").classList.add("hidden");
     document.getElementById("userEmailDisplay").textContent=email;
     document.getElementById("logoutBtn").classList.remove("hidden");
@@ -241,69 +275,41 @@ async function logout(){
   document.getElementById("logoutBtn").classList.add("hidden");
 }
 
+// Form
 function showAddForm(){document.getElementById("cardForm").classList.remove("hidden");}
 function hideAddForm(){document.getElementById("cardForm").classList.add("hidden");}
 
-// Inserir / Editar cartão
 async function saveCard(){
-  const id = document.getElementById("f_id")?.value || null;
-  const nome = document.getElementById("f_nome").value.trim();
-  const cpf = document.getElementById("f_cpf").value.trim();
-  const regional = document.getElementById("f_regional").value.trim();
-  const unidade = document.getElementById("f_unidade").value.trim();
-  const assessor = document.getElementById("f_assessor").value.trim();
-  const areaPlantada = document.getElementById("f_areaPlantada").value.trim();
-  const limiteConcedido = parseFloat(document.getElementById("f_limiteConcedido").value.replace(",",".")||0);
-  const limiteDisponivel = parseFloat(document.getElementById("f_limiteDisponivel").value.replace(",",".")||0);
-  const statusLogistico = document.getElementById("f_statusLogistico").value;
-  const statusLimite = document.getElementById("f_statusLimite").value;
-  const vencimentoRaw = document.getElementById("f_vencimento").value;
-  const vencimento = vencimentoRaw ? new Date(vencimentoRaw).toISOString() : null;
-
-  if(!nome || !cpf){document.getElementById("formMsg").textContent="Preencha pelo menos Nome e CPF!"; return;}
-
-  const cardData = {nome, cpf, regional, unidade, assessor, areaPlantada, limiteConcedido, limiteDisponivel, statusLogistico, statusLimite, vencimento};
-
+  const data={
+    nome: document.getElementById("f_nome").value,
+    cpf: document.getElementById("f_cpf").value,
+    regional: document.getElementById("f_regional").value,
+    unidade: document.getElementById("f_unidade").value,
+    assessor: document.getElementById("f_assessor").value,
+    areaPlantada: document.getElementById("f_areaPlantada").value,
+    limiteConcedido: Number(document.getElementById("f_limiteConcedido").value||0),
+    limiteDisponivel: Number(document.getElementById("f_limiteDisponivel").value||0),
+    statusLogistico: document.getElementById("f_statusLogistico").value,
+    statusLimite: document.getElementById("f_statusLimite").value,
+    vencimento: document.getElementById("f_vencimento").value
+  };
   try{
-    if(id) await updateDoc(doc(db,"Cartao",id), cardData);
-    else await addDoc(collection(db,"Cartao"), cardData);
-    document.getElementById("formMsg").textContent="Cartão salvo com sucesso!";
-    hideAddForm(); await carregarCartoes();
-  }catch(err){document.getElementById("formMsg").textContent="Erro ao salvar cartão: "+err.message;}
+    await addDoc(collection(db,"Cartao"),data);
+    alert("Cartão salvo com sucesso!");
+    hideAddForm();
+    await carregarCartoes();
+  }catch(err){document.getElementById("formMsg").textContent=err.message;}
 }
 
-// Editar cartão
-async function editCard(id){
-  const docRef = doc(db,"Cartao",id);
-  const docSnap = await getDocs(docRef);
-  if(docSnap.exists()){
-    const d = docSnap.data();
-    document.getElementById("f_id")?.remove();
-    const idInput = document.createElement("input");
-    idInput.type="hidden"; idInput.id="f_id"; idInput.value=id;
-    document.getElementById("cardForm").appendChild(idInput);
-    document.getElementById("f_nome").value=d.nome||"";
-    document.getElementById("f_cpf").value=d.cpf||"";
-    document.getElementById("f_regional").value=d.regional||"";
-    document.getElementById("f_unidade").value=d.unidade||"";
-    document.getElementById("f_assessor").value=d.assessor||"";
-    document.getElementById("f_areaPlantada").value=d.areaPlantada||"";
-    document.getElementById("f_limiteConcedido").value=d.limiteConcedido||0;
-    document.getElementById("f_limiteDisponivel").value=d.limiteDisponivel||0;
-    document.getElementById("f_statusLogistico").value=d.statusLogistico||"";
-    document.getElementById("f_statusLimite").value=d.statusLimite||"";
-    document.getElementById("f_vencimento").value=d.vencimento?new Date(d.vencimento).toISOString().split("T")[0]:"";
-    showAddForm();
-  } else alert("Cartão não encontrado!");
-}
-
-// Carregar cartões na tabela
+// Carregar cartões
 async function carregarCartoes(){
   const tbody=document.getElementById("cardsTbody");
   tbody.innerHTML="";
   const snapshot=await getDocs(collection(db,"Cartao"));
+  const allowedUnits=userUnitsMap[currentUserEmail]||[];
   snapshot.forEach(docSnap=>{
     const d=docSnap.data();
+    if(allowedUnits.length && !allowedUnits.includes(d.unidade)) return;
     const tr=document.createElement("tr");
     tr.innerHTML=`
       <td>${d.nome||""}</td>
@@ -319,21 +325,34 @@ async function carregarCartoes(){
       <td>${d.limiteConcedido?Math.round((d.limiteDisponivel/d.limiteConcedido)*100):0}%</td>
       <td>${d.vencimento?new Date(d.vencimento).toLocaleDateString("pt-BR"):""}</td>
       <td>
-        <button onclick="editCard('${docSnap.id}')">Editar</button>
         <button onclick="deleteCard('${docSnap.id}')">Excluir</button>
       </td>`;
     tbody.appendChild(tr);
   });
 }
 
-async function deleteCard(id){if(!confirm("Deseja realmente excluir este cartão?")) return; await deleteDoc(doc(db,"Cartao",id)); await carregarCartoes();}
-async function deleteAllExceptProtected(){if(!confirm("Deseja realmente excluir todos os cartões?")) return; const snapshot=await getDocs(collection(db,"Cartao")); for(const d of snapshot.docs) await deleteDoc(doc(db,"Cartao",d.id)); await carregarCartoes();}
+async function deleteCard(id){
+  if(!confirm("Deseja realmente excluir este cartão?")) return;
+  await deleteDoc(doc(db,"Cartao",id));
+  await carregarCartoes();
+}
 
-window.runCSV=runCSV; window.login=login; window.logout=logout;
-window.showAddForm=showAddForm; window.hideAddForm=hideAddForm;
-window.saveCard=saveCard; window.carregarCartoes=carregarCartoes;
-window.deleteCard=deleteCard; window.deleteAllExceptProtected=deleteAllExceptProtected;
-window.editCard=editCard;
+async function deleteAllExceptProtected(){
+  if(!confirm("Deseja realmente excluir todos os cartões?")) return;
+  const snapshot=await getDocs(collection(db,"Cartao"));
+  for(const d of snapshot.docs) await deleteDoc(doc(db,"Cartao",d.id));
+  await carregarCartoes();
+}
+
+window.runCSV=runCSV;
+window.login=login;
+window.logout=logout;
+window.showAddForm=showAddForm;
+window.hideAddForm=hideAddForm;
+window.saveCard=saveCard;
+window.carregarCartoes=carregarCartoes;
+window.deleteCard=deleteCard;
+window.deleteAllExceptProtected=deleteAllExceptProtected;
 </script>
 </body>
 </html>
