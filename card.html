@@ -192,10 +192,6 @@
     const db = getFirestore(app);
 
     const PROTECTED_DOC_ID = "CB0WCT2tC1R7juMQ3sT9";
-    const unidadesPorUsuario = {
-      "usuario1@teste.com": ["A","B"],
-      "usuario2@teste.com": ["C"]
-    };
 
     let currentUser = null;
     let csvFile = null;
@@ -283,7 +279,7 @@
         snapshot.forEach(s=>{
           const c=s.data();
           const tr=document.createElement("tr");
-          const perc=c.limiteConcedido?((c.limiteDisponivel/c.limiteConcedido)*100).toFixed(2)+"%":"";
+          const perc=c.limiteConcedido?((c.limiteDisponivel/c.limiteConcedido)*100).toFixed(2)+"%":""; 
           tr.innerHTML=`
             <td>${c.nome||""}</td>
             <td>${c.cpf||""}</td>
@@ -308,12 +304,7 @@
     }
 
     function logout(){signOut(auth);}
-
-    function showAddForm(){
-      editingDocId=null;
-      cardForm.classList.remove("hidden");
-    }
-
+    function showAddForm(){editingDocId=null; cardForm.classList.remove("hidden");}
     function hideAddForm(){cardForm.classList.add("hidden");}
 
     async function saveCard(){
@@ -369,17 +360,17 @@
 
     async function runCSV(){if(!csvFile){alert("Escolha arquivo CSV");return;} alert("Função CSV pronta para implementar");}
 
+    // Expõe funções no escopo global para onclick dos botões
     window.login = login;
-window.logout = logout;
-window.handleFirstLoginSetPassword = handleFirstLoginSetPassword;
-window.showAddForm = showAddForm;
-window.hideAddForm = hideAddForm;
-window.saveCard = saveCard;
-window.editCard = editCard;
-window.deleteCard = deleteCard;
-window.deleteAllExceptProtected = deleteAllExceptProtected;
-window.runCSV = runCSV;
+    window.logout = logout;
+    window.handleFirstLoginSetPassword = handleFirstLoginSetPassword;
+    window.showAddForm = showAddForm;
+    window.hideAddForm = hideAddForm;
+    window.saveCard = saveCard;
+    window.editCard = editCard;
+    window.deleteCard = deleteCard;
+    window.deleteAllExceptProtected = deleteAllExceptProtected;
+    window.runCSV = runCSV;
   </script>
 </body>
 </html>
-
