@@ -75,16 +75,6 @@ function perguntar(titulo, tipo="text", opcoes=[]) {
   });
 }
 
-// Parse data brasileira dd/mm/yyyy para ISO
-function parseDataBrParaISO(dataBr) {
-  const partes = dataBr.split('/');
-  if(partes.length === 3){
-    const [dia, mes, ano] = partes;
-    return new Date(`${ano}-${mes}-${dia}`).toISOString();
-  }
-  return null;
-}
-
 // Carregar cartões
 async function carregarCartoes() {
   const snapshot = await getDocs(collection(db, "Cartao"));
@@ -107,9 +97,12 @@ async function carregarCartoes() {
       <td>${c.limiteDisponivel}</td>
       <td>${c.percentualDisponivel}%</td>
       <td>${c.vencimento ? new Date(c.vencimento).toLocaleDateString("pt-BR") : ''}</td>
-      <td><button class="btn-update">Atualizar Status</button></td>
+      <td>
+        <button class="btn-update">Atualizar Status</button>
+      </td>
     `;
     tbody.appendChild(tr);
+
     tr.querySelector(".btn-update").addEventListener("click", () => atualizarCartao(docSnap.id));
   });
 }
@@ -136,7 +129,8 @@ async function inserirCartao() {
     limiteConcedido, limiteDisponivel, percentualDisponivel,
     statusLogistico, statusLimite,
     vencimento,
-    historico: [], primeiroLogin: false
+    historico: [],
+    primeiroLogin: false
   });
 
   alert("Cartão salvo com sucesso!");
@@ -163,88 +157,124 @@ async function atualizarCartao(id) {
   carregarCartoes();
 }
 
-// CSV upload e processar
-let arquivoCSV;
-function handleCSVUpload(evt){
-  arquivoCSV = evt.target.files[0];
+// Deletar todos os cartões exceto protegido
+async function deletarTudo() {
+  const confirmacao = confirm("Deseja realmente deletar todos os registros?");
+  if (!confirmacao) return;
+
+  const snapshot = await getDocs(collection(db, "Cartao"));
+  snapshot.forEach(async (docSnap) => {
+    if(docSnap.id !== "CB0WCT2tC1R7juMQ3sT9") {
+      await doc(db, "Cartao", docSnap.id).delete();
+    }
+  });
+
+  alert("Todos os registros foram deletados (exceto o protegido)!");
+  carregarCartoes();
 }
-async function executarCSV(){
-  if(!arquivoCSV){ alert("Selecione um arquivo CSV"); return; }
-  const text = await arquivoCSV.text();
-  const linhas = text.split("\n").filter(l=>l.trim()!=="");
-  for(let i=1;i<linhas.length;i++){
-    const cols = linhas[i].split(";").map(c=>c.trim());
+
+// CSV
+let csvConteudo = "";
+function importarCSV(event) {
+  const file = event.target.files[0];
+  const reader = new FileReader();
+  reader.onload = (e) => { csvConteudo = e.target.result; alert("CSV carregado! Clique em 'Executar CSV'"); };
+  reader.readAsText(file, "UTF-8");
+}
+
+async function executarCSV() {
+  if (!csvConteudo) { alert("Nenhum CSV carregado"); return; }
+  const linhas = csvConteudo.split("\n").filter(l => l.trim() !== "");
+  for (let i=1;i<linhas.length;i++) {
+    const cols = linhas[i].split(";");
     if(cols.length<13) continue;
-    const [nome, cpf, userId, statusLogistico, statusLimite, areaPlantada, regional, unidade, assessor, limiteConcedido, limiteDisponivel, percentualDisponivel, vencimento] = cols;
-    let vencimentoISO = parseDataBrParaISO(vencimento);
-    await addDoc(collection(db,"Cartao"),{
-      nome, cpf, userId, statusLogistico, statusLimite, areaPlantada, regional, unidade, assessor,
-      limiteConcedido: parseFloat(limiteConcedido.replace(",", ".")),
-      limiteDisponivel: parseFloat(limiteDisponivel.replace(",", ".")),
-      percentualDisponivel: parseFloat(percentualDisponivel.replace(",", ".")),
-      vencimento: vencimentoISO,
-      historico: [], primeiroLogin:false
+    const [nome, cpf, userId, statusLogistico, statusLimite, areaPlantada, regional, unidade, assessor, limiteConcedido, limiteDisponivel, percentualDisponivel, vencimentoInput] = cols;
+    const vencimento = new Date(vencimentoInput).toISOString();
+    await addDoc(collection(db, "Cartao"), {
+      nome, cpf, userId, statusLogistico, statusLimite, areaPlantada,
+      regional, unidade, assessor,
+      limiteConcedido: parseFloat(limiteConcedido),
+      limiteDisponivel: parseFloat(limiteDisponivel),
+      percentualDisponivel: parseFloat(percentualDisponivel),
+      vencimento,
+      historico: [],
+      primeiroLogin: false
     });
   }
   alert("CSV processado!");
   carregarCartoes();
 }
 
-// Login simplificado com tela central
+// Login
 async function login() {
   const email = document.getElementById("login-email").value;
   const senha = document.getElementById("login-senha").value;
+
   try {
-    const userCredential = await signInWithEmailAndPassword(auth,email,senha);
+    const userCredential = await signInWithEmailAndPassword(auth, email, senha);
     const user = userCredential.user;
-    document.getElementById("login-screen").style.display = "none";
+
+    const q = query(collection(db, "Cartao"), where("userId", "==", email));
+    const querySnapshot = await getDocs(q);
+
+    if (!querySnapshot.empty) {
+      const userDoc = querySnapshot.docs[0];
+      const data = userDoc.data();
+
+      if (data.primeiroLogin) {
+        const novaSenha = prompt("Troque sua senha:");
+        await updatePassword(user, novaSenha);
+        await updateDoc(doc(db, "Cartao", userDoc.id), { primeiroLogin: false });
+        alert("Senha atualizada! Faça login novamente.");
+        return login();
+      }
+    }
+
     document.getElementById("app").style.display = "block";
+    document.getElementById("login-container").style.display = "none";
     carregarCartoes();
-  } catch(err){
-    alert("Erro ao logar: " + err.message);
+
+  } catch (error) {
+    alert("Erro ao autenticar: " + error.message);
   }
 }
 
-window.onload = ()=>{document.getElementById("login-btn").onclick=login;};
-window.inserirCartao = inserirCartao;
-window.atualizarCartao = atualizarCartao;
-window.handleCSVUpload = handleCSVUpload;
-window.executarCSV = executarCSV;
+window.onload = () => {
+  document.getElementById("btn-login").onclick = login;
+  window.inserirCartao = inserirCartao;
+  window.atualizarCartao = atualizarCartao;
+  window.deletarTudo = deletarTudo;
+  window.importarCSV = importarCSV;
+  window.executarCSV = executarCSV;
+};
 </script>
 <style>
-body { background-color: black; color: white; font-family: Arial, sans-serif; margin:0; padding:0; }
+body { background-color: black; color: white; font-family: Arial, sans-serif; margin:0; height:100vh; display:flex; justify-content:center; align-items:center; flex-direction:column; }
 table { width: 100%; border-collapse: collapse; margin-top: 20px; }
 th, td { border: 1px solid white; padding: 8px; text-align: center; }
-button { background: white; color: black; border: none; padding: 5px 10px; cursor: pointer; border-radius: 6px; }
-.modal { position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.8); display:flex; justify-content:center; align-items:center; }
-.modal-content { background:#222; padding:20px; border-radius:10px; text-align:center; }
-select, input { width:100%; padding:8px; margin:10px 0; }
-#login-screen { position:fixed; top:0; left:0; width:100%; height:100%; display:flex; justify-content:center; align-items:center; background:black; }
-#login-box { background:#222; padding:30px; border-radius:10px; text-align:center; width:300px; }
-#login-box input { width:100%; margin:8px 0; padding:6px; }
-#csv-area { margin-top:10px; }
+button { background: white; color: black; border: none; padding: 5px 10px; cursor: pointer; border-radius: 6px; margin: 2px; }
+.modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; justify-content: center; align-items: center; }
+.modal-content { background: #222; padding: 20px; border-radius: 10px; text-align: center; }
+select, input { width: 100%; padding: 8px; margin: 10px 0; }
+#login-container { display:flex; flex-direction:column; align-items:center; justify-content:center; border: 1px solid white; padding: 20px; border-radius:10px; }
+#login-container input { width: 200px; }
 </style>
 </head>
 <body>
 
-<!-- Login centralizado -->
-<div id="login-screen">
-  <div id="login-box">
-    <h2>Login</h2>
-    <input type="email" id="login-email" placeholder="Email">
-    <input type="password" id="login-senha" placeholder="Senha">
-    <button id="login-btn">Entrar</button>
-  </div>
+<div id="login-container">
+  <h2>Login</h2>
+  <input type="email" id="login-email" placeholder="Email">
+  <input type="password" id="login-senha" placeholder="Senha">
+  <button id="btn-login">Entrar</button>
 </div>
 
-<div id="app" style="display:none">
+<div id="app" style="display:none; width:90%; max-width:1200px;">
 <h1>Gestão de Cartões</h1>
 <button onclick="inserirCartao()">Inserir Cliente/Cartão</button>
-
-<div id="csv-area">
-  <input type="file" accept=".csv" onchange="handleCSVUpload(event)">
-  <button onclick="executarCSV()">Executar CSV</button>
-</div>
+<button onclick="deletarTudo()">Deletar Tudo</button>
+<input type="file" accept=".csv" onchange="importarCSV(event)">
+<button onclick="executarCSV()">Executar CSV</button>
 
 <table>
   <thead>
