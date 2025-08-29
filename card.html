@@ -21,24 +21,40 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 
+// Opções fixas
 const regionais = ["1","2","3"];
-const unidadesPorRegional = { "1": ["A","B","C"], "2": ["D","E","F"], "3": ["G","H","I"] };
-const assessoresPorRegional = { "1": ["Joao"], "2": ["Pedro"], "3": ["Carlos"] };
+const unidadesPorRegional = {
+  "1": ["A","B","C"],
+  "2": ["D","E","F"],
+  "3": ["G","H","I"]
+};
+const assessoresPorRegional = {
+  "1": ["Joao"],
+  "2": ["Pedro"],
+  "3": ["Carlos"]
+};
 const statusLogisticoOptions = [
-  "1 -","2 - Aguardando receber plástico na TC (Ijuí)","3 - Aguardando receber plástico na TC (Sinop)",
-  "3.5 - Na TC Ijuí","4 - Em Trânsito para a unidade","5 - Aguardando Entrega ao cliente",
-  "6 - Cartão Não Entregue","7 - Cartão Entregue","8 - Não se Aplica"
+  "1 -",
+  "2 - Aguardando receber plástico na TC (Ijuí)",
+  "3 - Aguardando receber plástico na TC (Sinop)",
+  "3.5 - Na TC Ijuí",
+  "4 - Em Trânsito para a unidade",
+  "5 - Aguardando Entrega ao cliente",
+  "6 - Cartão Não Entregue",
+  "7 - Cartão Entregue",
+  "8 - Não se Aplica"
 ];
 const statusLimiteOptions = [
-  "01 - Limite - Aguardando análise","02 - Limite - Análise de Crédito","03 - Limite - Aguardando retorno do GU",
-  "04 - Limite - Aguardando Validação Eduardo","05 - Limite Aprovado - Aguardando Solicitação App. (DESUSO)",
-  "06 - Limite - Aguardando aprovar limite Sinqia","07 - Limite - Aguardando aprovar limite WM",
-  "08 - Limite Aprovado - Aguardando matrícula (DESUSO)","09 - Limite Aprovado - Aguardando envio de contrato",
-  "10 - Limite Aprovado - Aguardando assinatura do contrato","11 - Limite Aprovado - Aguardando assinatura renovação",
-  "12 - Aguardando desbloqueio","13 - Desbloqueado sem utilização","14 - Ativo","15 - Limite - Cancelado","99 - NEGADO WM"
+  "01 - Limite - Aguardando análise","02 - Limite - Análise de Crédito",
+  "03 - Limite - Aguardando retorno do GU","04 - Limite - Aguardando Validação Eduardo",
+  "05 - Limite Aprovado - Aguardando Solicitação App. (DESUSO)","06 - Limite - Aguardando aprovar limite Sinqia",
+  "07 - Limite - Aguardando aprovar limite WM","08 - Limite Aprovado - Aguardando matrícula (DESUSO)",
+  "09 - Limite Aprovado - Aguardando envio de contrato","10 - Limite Aprovado - Aguardando assinatura do contrato",
+  "11 - Limite Aprovado - Aguardando assinatura renovação","12 - Aguardando desbloqueio",
+  "13 - Desbloqueado sem utilização","14 - Ativo","15 - Limite - Cancelado","99 - NEGADO WM"
 ];
 
-// Função popup genérico
+// Popup genérico
 function perguntar(titulo, tipo="text", opcoes=[]) {
   return new Promise(resolve => {
     const modal = document.createElement("div");
@@ -81,7 +97,9 @@ async function carregarCartoes() {
       <td>${c.limiteDisponivel}</td>
       <td>${c.percentualDisponivel}%</td>
       <td>${c.vencimento ? new Date(c.vencimento).toLocaleDateString("pt-BR") : ''}</td>
-      <td><button class="btn-update">Atualizar Status</button></td>
+      <td>
+        <button class="btn-update">Atualizar Status</button>
+      </td>
     `;
     tbody.appendChild(tr);
     tr.querySelector(".btn-update").addEventListener("click", () => atualizarCartao(docSnap.id));
@@ -118,11 +136,10 @@ async function inserirCartao() {
   carregarCartoes();
 }
 
-// Atualizar status
+// Atualizar cartão (apenas status)
 async function atualizarCartao(id) {
   const sLogistico = await perguntar("Atualizar Status Logístico:", "select", statusLogisticoOptions);
   const sLimite = await perguntar("Atualizar Status Limite:", "select", statusLimiteOptions);
-
   const ref = doc(db, "Cartao", id);
   await updateDoc(ref, {
     statusLogistico: sLogistico,
@@ -137,61 +154,48 @@ async function atualizarCartao(id) {
   carregarCartoes();
 }
 
-// CSV
-let csvData = [];
-function handleCSVUpload(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    csvData = e.target.result.split('\n').map(l => l.split(';'));
-    alert("CSV carregado! Clique em Executar CSV.");
-  };
-  reader.readAsText(file, 'ISO-8859-1');
-}
-async function executarCSV() {
-  if (csvData.length < 2) { alert("Nenhum dado para processar."); return; }
-  const headers = csvData[0];
-  for (let i = 1; i < csvData.length; i++) {
-    const row = csvData[i];
-    if (!row[0]) continue;
-    const obj = {
-      nome: row[0],
-      cpf: row[1],
-      userId: row[2],
-      statusLogistico: row[3],
-      statusLimite: row[4],
-      areaPlantada: row[5],
-      regional: row[6],
-      unidade: row[7],
-      assessor: row[8],
-      limiteConcedido: parseFloat(row[9]) || 0,
-      limiteDisponivel: parseFloat(row[10]) || 0,
-      percentualDisponivel: parseFloat(row[11]) || 0,
-      vencimento: row[12] ? new Date(row[12]).toISOString() : null,
-      historico: [],
-      primeiroLogin: false
-    };
-    await addDoc(collection(db, "Cartao"), obj);
-  }
-  alert("CSV importado com sucesso!");
-  carregarCartoes();
-}
-
 // Deletar todos exceto um
 async function deletarTudo() {
   const snapshot = await getDocs(collection(db, "Cartao"));
-  snapshot.forEach(async docSnap => {
-    if (docSnap.id !== 'CB0WCT2tC1R7juMQ3sT9') await deleteDoc(doc(db, "Cartao", docSnap.id));
-  });
-  alert("Registros deletados!");
+  for (const docSnap of snapshot.docs) {
+    if (docSnap.id !== "CB0WCT2tC1R7juMQ3sT9") {
+      await deleteDoc(doc(db, "Cartao", docSnap.id));
+    }
+  }
+  alert("Registros deletados (exceto o ID protegido).");
   carregarCartoes();
 }
 
-// Login
-async function login() {
-  const email = document.getElementById("login-email").value;
-  const senha = document.getElementById("login-senha").value;
+// Processar CSV
+async function processarCSV(file) {
+  const text = await file.text();
+  const linhas = text.split("\n").filter(l=>l.trim()!=="");
+  for (let i=1;i<linhas.length;i++){
+    const cols = linhas[i].split(";");
+    if(cols.length<13) continue;
+    const [
+      nome, cpf, userId, statusLogistico, statusLimite, areaPlantada,
+      regional, unidade, assessor, limiteConcedido, limiteDisponivel,
+      percentualDisponivel, vencimento
+    ] = cols.map(c=>c.trim());
+    await addDoc(collection(db,"Cartao"),{
+      nome, cpf, userId, statusLogistico, statusLimite, areaPlantada,
+      regional, unidade, assessor,
+      limiteConcedido: parseFloat(limiteConcedido),
+      limiteDisponivel: parseFloat(limiteDisponivel),
+      percentualDisponivel: parseFloat(percentualDisponivel),
+      vencimento: new Date(vencimento).toISOString(),
+      historico: [], primeiroLogin:false
+    });
+  }
+  alert("CSV processado e dados gravados no Firestore!");
+  carregarCartoes();
+}
+
+// Login centralizado
+async function loginTela() {
+  const email = document.getElementById("email-login").value;
+  const senha = document.getElementById("senha-login").value;
   try {
     const userCredential = await signInWithEmailAndPassword(auth, email, senha);
     const user = userCredential.user;
@@ -202,52 +206,68 @@ async function login() {
     if (!querySnapshot.empty) {
       const userDoc = querySnapshot.docs[0];
       const data = userDoc.data();
-
       if (data.primeiroLogin) {
         const novaSenha = prompt("Troque sua senha:");
-        await updatePassword(user, novaSenha);
-        await updateDoc(doc(db, "Cartao", userDoc.id), { primeiroLogin: false });
-        alert("Senha atualizada! Faça login novamente.");
-        return;
+        if(novaSenha) {
+          await updatePassword(user, novaSenha);
+          await updateDoc(doc(db, "Cartao", userDoc.id), { primeiroLogin: false });
+          alert("Senha atualizada! Faça login novamente.");
+          return;
+        }
       }
     }
-
     document.getElementById("login-container").style.display = "none";
     document.getElementById("app").style.display = "block";
     carregarCartoes();
-  } catch (error) {
-    alert("Erro ao autenticar: " + error.message);
+  } catch(e) {
+    alert("Erro no login: "+e.message);
   }
 }
+
+// CSV upload
+let csvFile=null;
+function handleCSVUpload(event){
+  csvFile = event.target.files[0];
+}
+function executarCSV() {
+  if(csvFile) processarCSV(csvFile);
+  else alert("Selecione um arquivo CSV primeiro.");
+}
+
+window.onload = ()=>{document.getElementById("login-container").style.display="block";};
+window.inserirCartao = inserirCartao;
+window.atualizarCartao = atualizarCartao;
+window.deletarTudo = deletarTudo;
+window.handleCSVUpload = handleCSVUpload;
+window.executarCSV = executarCSV;
+window.loginTela = loginTela;
 </script>
 <style>
-body { background-color: black; color: white; font-family: Arial, sans-serif; margin:0; height:100vh; display:flex; align-items:center; justify-content:center; }
+body { background-color: black; color: white; font-family: Arial, sans-serif; margin:0; height:100vh; display:flex; justify-content:center; align-items:center; flex-direction:column; }
 table { width: 100%; border-collapse: collapse; margin-top: 20px; }
 th, td { border: 1px solid white; padding: 8px; text-align: center; }
-button { background: white; color: black; border: none; padding: 5px 10px; cursor: pointer; border-radius: 6px; margin:5px; }
+button { background: white; color: black; border: none; padding: 5px 10px; cursor: pointer; border-radius: 6px; margin:2px; }
+input, select { padding:5px; margin:5px 0; }
 .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; justify-content: center; align-items: center; }
 .modal-content { background: #222; padding: 20px; border-radius: 10px; text-align: center; }
-select, input { width: 100%; padding: 8px; margin: 10px 0; }
-#login-container { display:flex; flex-direction:column; align-items:center; justify-content:center; width:300px; }
-#login-container input { width: 90%; margin-bottom:10px; }
-#app { display:none; width:95%; }
+#login-container { display:none; background:#222; padding:20px; border-radius:10px; display:flex; flex-direction:column; width:300px; text-align:center; }
 </style>
 </head>
 <body>
+
 <div id="login-container">
 <h2>Login</h2>
-<input type="email" id="login-email" placeholder="Email">
-<input type="password" id="login-senha" placeholder="Senha">
-<button onclick="login()">Entrar</button>
+<input type="text" id="email-login" placeholder="Email">
+<input type="password" id="senha-login" placeholder="Senha">
+<button onclick="loginTela()">Entrar</button>
 </div>
 
-<div id="app">
+<div id="app" style="display:none; width:95%; max-width:1200px;">
 <h1>Gestão de Cartões</h1>
 <button onclick="inserirCartao()">Inserir Cliente/Cartão</button>
-<input type="file" id="csv-file" accept=".csv" onchange="handleCSVUpload(event)">
+<input type="file" accept=".csv" onchange="handleCSVUpload(event)">
 <button onclick="executarCSV()">Executar CSV</button>
-<button onclick="deletarTudo()">Deletar Todos</button>
-
+<button onclick="deletarTudo()">Deletar Tudo</button>
 <table>
   <thead>
     <tr>
