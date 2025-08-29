@@ -30,8 +30,9 @@
       padding: 20px;
       border-radius: 10px;
       box-shadow: 0 2px 6px rgba(0,0,0,0.1);
-      max-width: 500px;
+      max-width: 900px;
       margin: 20px auto;
+      overflow-x: auto;
     }
     input, button {
       padding: 10px;
@@ -49,16 +50,19 @@
     button:hover {
       background: #444;
     }
-    ul {
-      list-style: none;
-      padding: 0;
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
     }
-    li {
-      background: #f9f9f9;
-      margin-bottom: 5px;
+    th, td {
+      border: 1px solid #ddd;
       padding: 8px;
-      border-radius: 5px;
       font-size: 14px;
+    }
+    th {
+      background: #f0f0f0;
+      text-align: left;
     }
     .admin-only {
       margin-top: 15px;
@@ -68,17 +72,17 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
     import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
-    import { getFirestore, doc, getDoc, setDoc, collection, getDocs, addDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+    import { getFirestore, collection, getDocs, addDoc, deleteDoc, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
     // Configuração Firebase
-  const firebaseConfig = {
-  apiKey: "AIzaSyBKw2vWc6hwICs-yCsdqr1h4M1hmMUD0wE",
-  authDomain: "limites-fd5a6.firebaseapp.com",
-  projectId: "limites-fd5a6",
-  storageBucket: "limites-fd5a6.firebasestorage.app",
-  messagingSenderId: "51777731197",
-  appId: "1:51777731197:web:dbc68948e1825cc2aecf14"
-};
+    const firebaseConfig = {
+      apiKey: "AIzaSyBKw2vWc6hwICs-yCsdqr1h4M1hmMUD0wE",
+      authDomain: "limites-fd5a6.firebaseapp.com",
+      projectId: "limites-fd5a6",
+      storageBucket: "limites-fd5a6.firebasestorage.app",
+      messagingSenderId: "51777731197",
+      appId: "1:51777731197:web:dbc68948e1825cc2aecf14"
+    };
 
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
@@ -88,18 +92,15 @@
     async function loginSistema() {
       const email = document.getElementById("email").value;
       const senha = document.getElementById("senha").value;
-
       try {
         const userCredential = await signInWithEmailAndPassword(auth, email, senha);
         const user = userCredential.user;
-
         // Cria doc de usuario se não existir
         const userDocRef = doc(db, "Usuarios", user.uid);
         const userSnap = await getDoc(userDocRef);
         if (!userSnap.exists()) {
           await setDoc(userDocRef, { primeiroLogin: true, email: user.email });
         }
-
       } catch (error) {
         alert("Erro no login: " + error.message);
       }
@@ -110,15 +111,20 @@
       await signOut(auth);
     }
 
-    // Carregar cartões
+    // Carregar cartões em tabela
     async function carregarCartoes() {
       const querySnapshot = await getDocs(collection(db, "Cartao"));
-      const lista = document.getElementById("listaCartoes");
-      lista.innerHTML = "";
-      querySnapshot.forEach((doc) => {
-        const li = document.createElement("li");
-        li.textContent = JSON.stringify(doc.data());
-        lista.appendChild(li);
+      const tbody = document.getElementById("tabelaCartoesBody");
+      tbody.innerHTML = "";
+      querySnapshot.forEach((docSnap) => {
+        const data = docSnap.data();
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${data.numero || ""}</td>
+          <td>${data.outroCampo || ""}</td>
+          <td>${data.vencimento ? new Date(data.vencimento).toLocaleDateString("pt-BR") : ""}</td>
+        `;
+        tbody.appendChild(tr);
       });
     }
 
@@ -139,6 +145,43 @@
         await deleteDoc(doc(db, "Cartao", docItem.id));
       }
       carregarCartoes();
+    }
+
+    // Importar CSV (formato brasileiro dd/mm/yyyy)
+    async function importarCSV() {
+      const fileInput = document.createElement("input");
+      fileInput.type = "file";
+      fileInput.accept = ".csv";
+      fileInput.onchange = async () => {
+        const file = fileInput.files[0];
+        if (!file) return;
+        const text = await file.text();
+        const lines = text.split("\n").map(l => l.trim()).filter(l => l);
+        const headers = lines[0].split(";").map(h => h.trim());
+        for (let i = 1; i < lines.length; i++) {
+          const values = lines[i].split(";").map(v => v.trim());
+          const obj = {};
+          headers.forEach((h, idx) => obj[h] = values[idx] || "");
+          let venc = null;
+          if (obj["Vencimento do limite"]) {
+            const raw = obj["Vencimento do limite"];
+            if (/^\d{2}\/\d{2}\/\d{4}$/.test(raw)) {
+              const [dia, mes, ano] = raw.split("/");
+              venc = new Date(`${ano}-${mes}-${dia}T00:00:00`);
+            } else {
+              venc = new Date(raw);
+            }
+          }
+          await addDoc(collection(db, "Cartao"), {
+            numero: obj["Numero Cartao"] || "",
+            outroCampo: obj["Outro Campo"] || "",
+            vencimento: venc ? venc.toISOString() : null
+          });
+        }
+        carregarCartoes();
+        alert("CSV importado com sucesso!");
+      };
+      fileInput.click();
     }
 
     // Controle de estado
@@ -168,6 +211,7 @@
     window.logoutSistema = logoutSistema;
     window.adicionarCartao = adicionarCartao;
     window.deletarCartoes = deletarCartoes;
+    window.importarCSV = importarCSV;
   </script>
 </head>
 <body>
@@ -188,12 +232,22 @@
     <!-- App -->
     <div id="appDiv" class="card" style="display:none;">
       <h2>Cartões</h2>
-      <ul id="listaCartoes"></ul>
+      <table>
+        <thead>
+          <tr>
+            <th>Número</th>
+            <th>Outro Campo</th>
+            <th>Vencimento</th>
+          </tr>
+        </thead>
+        <tbody id="tabelaCartoesBody"></tbody>
+      </table>
 
       <!-- Botões apenas admin -->
       <div class="admin-only">
         <button onclick="adicionarCartao()">Adicionar Cartão</button>
         <button onclick="deletarCartoes()">Excluir Todos os Cartões</button>
+        <button onclick="importarCSV()">Importar CSV</button>
       </div>
 
       <button onclick="logoutSistema()">Sair</button>
