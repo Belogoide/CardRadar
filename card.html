@@ -14,7 +14,8 @@ header h1{margin:0;font-size:20px;color:var(--accent)}
 .card{background:var(--card);border-radius:10px;padding:18px;box-shadow:0 0 0 2px #fff;}
 .login-grid{max-width:420px;margin:0 auto;}
 input[type="email"], input[type="password"], input[type="text"], input[type="number"], input[type="date"], select{
-width:100%;padding:10px;margin:8px 0;border-radius:6px;border:1px solid #fff;font-size:14px;background:#000;color:#fff;}
+width:100%;padding:10px;margin:8px 0;border-radius:6px;border:1px solid #fff;
+font-size:14px;background:#000;color:#fff;}
 button{padding:10px 12px;border-radius:6px;border:1px solid #fff;background:var(--accent);color:#000;cursor:pointer}
 button.secondary{background:#555;color:#fff;border:1px solid #fff}
 .hidden{display:none}
@@ -51,7 +52,7 @@ tr:nth-child(even){background:#222}
 <p id="loginError" class="small" style="color:#b00020"></p>
 </section>
 
-<!-- Primeiro login -->
+<!-- Primeiro Login -->
 <section id="firstLoginSection" class="card hidden" style="max-width:520px;margin:18px auto;">
 <h2>Primeiro acesso — alterar senha</h2>
 <p class="small">Para segurança, defina uma nova senha antes de acessar o sistema.</p>
@@ -70,6 +71,8 @@ tr:nth-child(even){background:#222}
 <h2>Lista de Cartões</h2>
 <p class="small">A tabela abaixo mostra os cartões que você tem permissão para visualizar.</p>
 </div>
+
+<!-- Admin actions -->
 <div id="adminControls" class="admin-only" style="text-align:right">
 <div style="margin-bottom:8px">
 <button onclick="showAddForm()">Inserir Cartão</button>
@@ -82,7 +85,7 @@ tr:nth-child(even){background:#222}
 </div>
 </div>
 
-<!-- Formulario de cadastro/edição -->
+<!-- Add/Edit form (admin only) -->
 <div id="cardForm" class="hidden" style="margin-top:12px;border:2px solid #fff;padding:12px;border-radius:8px">
 <h3>Inserir / Editar Cartão</h3>
 <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">
@@ -134,7 +137,7 @@ tr:nth-child(even){background:#222}
 <p id="formMsg" class="small" style="color:#b00020"></p>
 </div>
 
-<!-- Tabela -->
+<!-- Table -->
 <div style="overflow:auto;margin-top:12px">
 <table id="cardsTable">
 <thead>
@@ -162,16 +165,16 @@ tr:nth-child(even){background:#222}
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, updateDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
-import { getAuth, signInWithEmailAndPassword, signOut, updatePassword, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
+import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+import { getAuth, signInWithEmailAndPassword, signOut, updatePassword } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
 
 const firebaseConfig = {
-apiKey:"AIzaSyBKw2vWc6hwICs-yCsdqr1h4M1hmMUD0wE",
-authDomain:"limites-fd5a6.firebaseapp.com",
-projectId:"limites-fd5a6",
-storageBucket:"limites-fd5a6.appspot.com",
-messagingSenderId:"51777731197",
-appId:"1:51777731197:web:dbc68948e1825cc2aecf14"
+  apiKey:"AIzaSyBKw2vWc6hwICs-yCsdqr1h4M1hmMUD0wE",
+  authDomain:"limites-fd5a6.firebaseapp.com",
+  projectId:"limites-fd5a6",
+  storageBucket:"limites-fd5a6.appspot.com",
+  messagingSenderId:"51777731197",
+  appId:"1:51777731197:web:dbc68948e1825cc2aecf14"
 };
 
 const app = initializeApp(firebaseConfig);
@@ -179,63 +182,123 @@ const db = getFirestore(app);
 const auth = getAuth(app);
 
 let csvFile = null;
-let currentUserEmail = "";
+const csvInput = document.getElementById("csvFileInput");
+csvInput.addEventListener("change", e => { csvFile = e.target.files[0]; });
 
-const userUnitsMap = {
-"silmar.junior@3tentos.com.br":["Santa Bárbara do Sul","Saldanha Marinho","Colorado","Palmeira das Missões","Espumoso","Nonoai"],
-"douglas.lodi@3tentos.com.br":["Passo Fundo","Lagoa Vermelha","Vacaria","Erechim","Sananduva"],
-"giovana.lugoch@3tentos.com.br":["Ijui","Ajuricaba","Boa Vista do Cadeado","Catuipe","Coronel Barros","Maua","Campo Novo","Três de Maio","Horizontina"],
-"giovane.lopes@tentoscap.com.br":["Santo Augusto","Chiapetta","Eugenio de Castro","Giruá","Entre-Ijuis","São Luiz Gonzaga","Santo Antônio das Missões"],
-"alexandre.rocha@3tentos.com.br":["Augusto Pestana","Capão do Cipó","Joia","Santiago","Condor","Panambi","Julio de Castilhos","Cruz Alta","Fortaleza dos Valos","Ibiruba","Pejuçara","Tupanciretã"],
-"thiago.molina@3tentos.com.br":["Cachoeira do Sul","Santa Maria","São Vicente do Sul"],
-"marina.haertel@tentoscap.com.br":["Pelotas","Santa Vitoria do Palmar","Capivari","Camaqua","Canguçu"],
-"lorenzo.bratta@tentoscap.com.br":["Alegrete","Uruguaiana","Bagé","Dom Pedrito","Rosário do Sul","São Borja","São Gabriel"],
-"carlos.meurer@3tentos.com.br":["Alta Floresta","Matupa"],
-"matheus.poletto@tentoscap.com.br":["Porto dos Gauchos","Sinop"],
-"jessica.paula@3tentos.com.br":["Nova Ubiratã","Sorriso"],
-"joao.junior@3tentos.com.br":["Confresa"],
-"fabricio.santos@3tentos.com.br":["São Felix do Araguaia","Querência","Água Boa"]
+// Usuários e unidades permitidas
+const usersUnidades = {
+  "silmar.junior@3tentos.com.br":["Santa Bárbara do Sul","Saldanha Marinho","Colorado","Palmeira das Missões","Espumoso","Nonoai"],
+  "douglas.lodi@3tentos.com.br":["Passo Fundo","Lagoa Vermelha","Vacaria","Erechim","Sananduva"],
+  "giovana.lugoch@3tentos.com.br":["Ijui","Ajuricaba","Boa Vista do Cadeado","Catuipe","Coronel Barros","Maua","Campo Novo","Três de Maio","Horizontina"],
+  "giovane.lopes@tentoscap.com.br":["Santo Augusto","Chiapetta","Eugenio de Castro","Giruá","Entre-Ijuis","São Luiz Gonzaga","Santo Antônio das Missões"],
+  "alexandre.rocha@3tentos.com.br":["Augusto Pestana","Capão do Cipó","Joia","Santiago","Condor","Panambi","Julio de Castilhos","Cruz Alta","Fortaleza dos Valos","Ibiruba","Pejuçara","Tupanciretã"],
+  "thiago.molina@3tentos.com.br":["Cachoeira do Sul","Santa Maria","São Vicente do Sul"],
+  "marina.haertel@tentoscap.com.br":["Pelotas","Santa Vitoria do Palmar","Capivari","Camaqua","Canguçu"],
+  "lorenzo.bratta@tentoscap.com.br":["Alegrete","Uruguaiana","Bagé","Dom Pedrito","Rosário do Sul","São Borja","São Gabriel"],
+  "carlos.meurer@3tentos.com.br":["Alta Floresta","Matupa"],
+  "matheus.poletto@tentoscap.com.br":["Porto dos Gauchos","Sinop"],
+  "jessica.paula@3tentoscap.com.br":["Nova Ubiratã","Sorriso"],
+  "joao.junior@3tentoscap.com.br":["Confresa"],
+  "fabricio.santos@3tentoscap.com.br":["São Felix do Araguaia","Querência","Água Boa"]
 };
 
-// CSV input
-document.getElementById("csvFileInput").addEventListener("change", e=>csvFile=e.target.files[0]);
+let isAdmin = false;
+let unidadesPermitidas = [];
 
+async function login(){
+  const email = document.getElementById("inputEmail").value;
+  const pass = document.getElementById("inputPassword").value;
+  document.getElementById("loginError").textContent = "";
+  try {
+    const userCred = await signInWithEmailAndPassword(auth,email,pass);
+    document.getElementById("loginSection").classList.add("hidden");
+    document.getElementById("userEmailDisplay").textContent = email;
+    document.getElementById("logoutBtn").classList.remove("hidden");
+
+    // Definir unidades do usuário
+    unidadesPermitidas = usersUnidades[email] || [];
+    isAdmin = unidadesPermitidas.length === 0; // Sem unidades = admin
+
+    // Mostrar/ocultar controles de admin
+    document.querySelectorAll(".admin-only").forEach(e=>e.style.display = isAdmin?"block":"none");
+
+    // Verificar se é primeiro login (ex: password igual ao email)
+    if(pass === email.split("@")[0]) {
+      document.getElementById("firstLoginSection").classList.remove("hidden");
+    } else {
+      document.getElementById("appSection").classList.remove("hidden");
+      await carregarCartoes();
+    }
+  } catch(err) {
+    document.getElementById("loginError").textContent = err.message;
+  }
+}
+
+async function handleFirstLoginSetPassword() {
+  const newPass = document.getElementById("newPassword").value;
+  const confirmPass = document.getElementById("confirmNewPassword").value;
+  const msg = document.getElementById("firstLoginMsg");
+  msg.textContent = "";
+
+  if(newPass.length < 6){ msg.textContent="Senha mínima 6 caracteres"; return; }
+  if(newPass !== confirmPass){ msg.textContent="Senhas não coincidem"; return; }
+
+  const user = auth.currentUser;
+  try {
+    await updatePassword(user, newPass);
+    msg.style.color="#1a9a3b";
+    msg.textContent="Senha alterada com sucesso!";
+    document.getElementById("firstLoginSection").classList.add("hidden");
+    document.getElementById("appSection").classList.remove("hidden");
+    await carregarCartoes();
+  } catch(err) {
+    msg.style.color="#b00020";
+    msg.textContent = err.message;
+  }
+}
+
+async function logout(){
+  await signOut(auth);
+  document.getElementById("loginSection").classList.remove("hidden");
+  document.getElementById("appSection").classList.add("hidden");
+  document.getElementById("userEmailDisplay").textContent = "";
+  document.getElementById("logoutBtn").classList.add("hidden");
+}
+
+// CSV
 async function runCSV(){
   if(!csvFile){ alert("Escolha um arquivo CSV"); return; }
-
   const reader = new FileReader();
   reader.onload = async e => {
     const text = e.target.result;
-    const lines = text.split(/\r?\n/).filter(l => l.trim() !== "");
-    if(lines.length < 2){ alert("CSV vazio ou sem dados válidos"); return; }
+    const lines = text.split(/\r?\n/).filter(l=>l.trim()!=="");
+    if(lines.length<2){ alert("CSV vazio ou sem dados válidos"); return; }
 
-    // separador ;
-    const headers = lines[0].split(";").map(h => h.trim());
+    const headers = lines[0].split(";").map(h=>h.trim());
     const batchAdd = [];
 
-    for(let i = 1; i < lines.length; i++){
-      const values = lines[i].split(";").map(v => v.trim());
+    for(let i=1;i<lines.length;i++){
+      const values = lines[i].split(";").map(v=>v.trim());
       if(values.length !== headers.length) continue;
 
       const cardData = {};
-
-      headers.forEach((h, idx) => {
+      headers.forEach((h,idx)=>{
         let val = values[idx];
 
-        // limpar valores monetários e porcentagem apenas para campos numéricos
-        if((h.includes("Limite") && !h.toLowerCase().includes("status")) || h.includes("%")){
-          val = val.replace(/[R$%]/g,"").replace(",",".");
+        // Monetário ou % 
+        if(h.includes("Limite") || h.includes("%")){
+          val = val.replace(/[R$%]/g,"").replace(",","." );
           val = Number(val) || 0;
         }
 
-        // converter datas
+        // Data
         if(h.toLowerCase().includes("vencimento")){
           const partes = val.split("/");
-          if(partes.length === 3) val = `${partes[2]}-${partes[1].padStart(2,"0")}-${partes[0].padStart(2,"0")}`;
-          else val = "";
+          if(partes.length===3) val = `${partes[2]}-${partes[1].padStart(2,"0")}-${partes[0].padStart(2,"0")}`;
+          else val="";
         }
 
-        // nomes simplificados para Firestore
+        // Mapear para Firestore
         const keyMap = {
           "Cliente":"nome",
           "CPF":"cpf",
@@ -251,93 +314,36 @@ async function runCSV(){
           "% do Limite Disponivel":"percentDisponivel",
           "Vencimento do limite":"vencimento"
         };
-
         const key = keyMap[h] || h;
-        cardData[key] = val; // statusLimite permanece string
+        cardData[key] = val;
       });
-
       batchAdd.push(cardData);
     }
 
-    if(batchAdd.length === 0){ alert("Nenhum registro válido encontrado no CSV"); return; }
+    if(batchAdd.length===0){ alert("Nenhum registro válido encontrado no CSV"); return; }
 
-    try{
-      for(const c of batchAdd){
-        await addDoc(collection(db,"Cartao"), c);
-      }
+    try {
+      for(const c of batchAdd){ await addDoc(collection(db,"Cartao"),c); }
       alert(`Importação concluída! ${batchAdd.length} cartões adicionados.`);
-      csvFile = null;
-      document.getElementById("csvFileInput").value = "";
-      if(window.carregarCartoes) await window.carregarCartoes();
-    } catch(err){
-      alert("Erro ao importar CSV: " + err.message);
-    }
+      csvFile=null; csvInput.value="";
+      await carregarCartoes();
+    } catch(err){ alert("Erro ao importar CSV: "+err.message); }
   };
-
   reader.readAsText(csvFile);
 }
 
-
-// Login
-async function login(){
-  const email=document.getElementById("inputEmail").value;
-  const pass=document.getElementById("inputPassword").value;
-  document.getElementById("loginError").textContent="";
-  try{
-    const userCred=await signInWithEmailAndPassword(auth,email,pass);
-    currentUserEmail=email.toLowerCase();
-    document.getElementById("loginSection").classList.add("hidden");
-    document.getElementById("userEmailDisplay").textContent=email;
-    document.getElementById("logoutBtn").classList.remove("hidden");
-    document.getElementById("appSection").classList.remove("hidden");
-    document.querySelectorAll(".admin-only").forEach(e=>e.style.display="block");
-    await carregarCartoes();
-  }catch(err){document.getElementById("loginError").textContent=err.message;}
-}
-
-async function logout(){
-  await signOut(auth);
-  document.getElementById("loginSection").classList.remove("hidden");
-  document.getElementById("appSection").classList.add("hidden");
-  document.getElementById("userEmailDisplay").textContent="";
-  document.getElementById("logoutBtn").classList.add("hidden");
-}
-
-// Form
+// CRUD
 function showAddForm(){document.getElementById("cardForm").classList.remove("hidden");}
 function hideAddForm(){document.getElementById("cardForm").classList.add("hidden");}
+async function saveCard(){ alert("Função saveCard ainda não implementada"); }
 
-async function saveCard(){
-  const data={
-    nome: document.getElementById("f_nome").value,
-    cpf: document.getElementById("f_cpf").value,
-    regional: document.getElementById("f_regional").value,
-    unidade: document.getElementById("f_unidade").value,
-    assessor: document.getElementById("f_assessor").value,
-    areaPlantada: document.getElementById("f_areaPlantada").value,
-    limiteConcedido: Number(document.getElementById("f_limiteConcedido").value||0),
-    limiteDisponivel: Number(document.getElementById("f_limiteDisponivel").value||0),
-    statusLogistico: document.getElementById("f_statusLogistico").value,
-    statusLimite: document.getElementById("f_statusLimite").value,
-    vencimento: document.getElementById("f_vencimento").value
-  };
-  try{
-    await addDoc(collection(db,"Cartao"),data);
-    alert("Cartão salvo com sucesso!");
-    hideAddForm();
-    await carregarCartoes();
-  }catch(err){document.getElementById("formMsg").textContent=err.message;}
-}
-
-// Carregar cartões
 async function carregarCartoes(){
   const tbody=document.getElementById("cardsTbody");
   tbody.innerHTML="";
-  const snapshot=await getDocs(collection(db,"Cartao"));
-  const allowedUnits=userUnitsMap[currentUserEmail]||[];
+  const snapshot = await getDocs(collection(db,"Cartao"));
   snapshot.forEach(docSnap=>{
-    const d=docSnap.data();
-    if(allowedUnits.length && !allowedUnits.includes(d.unidade)) return;
+    const d = docSnap.data();
+    if(unidadesPermitidas.length && !unidadesPermitidas.includes(d.unidade)) return;
     const tr=document.createElement("tr");
     tr.innerHTML=`
       <td>${d.nome||""}</td>
@@ -352,9 +358,8 @@ async function carregarCartoes(){
       <td>${d.limiteDisponivel||0}</td>
       <td>${d.limiteConcedido?Math.round((d.limiteDisponivel/d.limiteConcedido)*100):0}%</td>
       <td>${d.vencimento?new Date(d.vencimento).toLocaleDateString("pt-BR"):""}</td>
-      <td>
-        <button onclick="deleteCard('${docSnap.id}')">Excluir</button>
-      </td>`;
+      ${isAdmin ? `<td><button onclick="deleteCard('${docSnap.id}')">Excluir</button></td>`:`<td></td>`}
+    `;
     tbody.appendChild(tr);
   });
 }
@@ -367,21 +372,22 @@ async function deleteCard(id){
 
 async function deleteAllExceptProtected(){
   if(!confirm("Deseja realmente excluir todos os cartões?")) return;
-  const snapshot=await getDocs(collection(db,"Cartao"));
+  const snapshot = await getDocs(collection(db,"Cartao"));
   for(const d of snapshot.docs) await deleteDoc(doc(db,"Cartao",d.id));
   await carregarCartoes();
 }
 
-window.runCSV=runCSV;
-window.login=login;
-window.logout=logout;
-window.showAddForm=showAddForm;
-window.hideAddForm=hideAddForm;
-window.saveCard=saveCard;
-window.carregarCartoes=carregarCartoes;
-window.deleteCard=deleteCard;
-window.deleteAllExceptProtected=deleteAllExceptProtected;
+window.runCSV = runCSV;
+window.login = login;
+window.logout = logout;
+window.showAddForm = showAddForm;
+window.hideAddForm = hideAddForm;
+window.saveCard = saveCard;
+window.carregarCartoes = carregarCartoes;
+window.deleteCard = deleteCard;
+window.deleteAllExceptProtected = deleteAllExceptProtected;
+window.handleFirstLoginSetPassword = handleFirstLoginSetPassword;
+
 </script>
 </body>
 </html>
-
