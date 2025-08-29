@@ -26,9 +26,9 @@ const regionais = ["1","2","3"];
 const unidadesPorRegional = { "1": ["A","B","C"], "2": ["D","E","F"], "3": ["G","H","I"] };
 const assessoresPorRegional = { "1": ["Joao"], "2": ["Pedro"], "3": ["Carlos"] };
 const statusLogisticoOptions = [
-  "1 -", "2 - Aguardando receber plástico na TC (Ijuí)", "3 - Aguardando receber plástico na TC (Sinop)",
-  "3.5 - Na TC Ijuí", "4 - Em Trânsito para a unidade", "5 - Aguardando Entrega ao cliente",
-  "6 - Cartão Não Entregue", "7 - Cartão Entregue", "8 - Não se Aplica"
+  "1 -","2 - Aguardando receber plástico na TC (Ijuí)","3 - Aguardando receber plástico na TC (Sinop)",
+  "3.5 - Na TC Ijuí","4 - Em Trânsito para a unidade","5 - Aguardando Entrega ao cliente",
+  "6 - Cartão Não Entregue","7 - Cartão Entregue","8 - Não se Aplica"
 ];
 const statusLimiteOptions = [
   "01 - Limite - Aguardando análise","02 - Limite - Análise de Crédito","03 - Limite - Aguardando retorno do GU",
@@ -47,17 +47,27 @@ function perguntar(titulo, tipo="text", opcoes=[]) {
     modal.innerHTML = `
       <div class="modal-content">
         <h3>${titulo}</h3>
-        ${tipo==="select" ? `<select id="modal-input">${opcoes.map(o=>`<option value="${o}">${o}</option>`).join("")}</select>` : `<input type="${tipo}" id="modal-input">`}
-        <button id="ok-btn">OK</button>
+        ${tipo==="select" ? `<select id="modal-input">${opcoes.map(o=>`<option value="${o}">${o}</option>`).join("")}</select>` 
+        : `<input type="${tipo}" id="modal-input">`}
+        <button class="btn">${tipo==="button"? "Ok":"Ok"}</button>
       </div>
     `;
     document.body.appendChild(modal);
-    document.getElementById("ok-btn").onclick = () => {
+    modal.querySelector(".btn").onclick = () => {
       const valor = document.getElementById("modal-input").value;
       modal.remove();
       resolve(valor);
     };
   });
+}
+
+// Parse data dd/mm/yyyy para ISO
+function parseDataCSV(dataStr) {
+  if (!dataStr || dataStr.trim() === "") return null;
+  const partes = dataStr.split("/");
+  if (partes.length !== 3) return null;
+  const d = new Date(`${partes[2]}-${partes[1]}-${partes[0]}T00:00:00`);
+  return isNaN(d) ? null : d.toISOString();
 }
 
 // Carregar cartões
@@ -89,7 +99,7 @@ async function carregarCartoes() {
   });
 }
 
-// Inserir cliente/cartão
+// Inserir cartão
 async function inserirCartao() {
   const nome = await perguntar("Nome do Cliente:");
   const cpf = await perguntar("CPF:");
@@ -103,25 +113,20 @@ async function inserirCartao() {
   const percentualDisponivel = ((limiteDisponivel/limiteConcedido)*100).toFixed(2);
   const statusLogistico = await perguntar("Status Logístico:", "select", statusLogisticoOptions);
   const statusLimite = await perguntar("Status Limite:", "select", statusLimiteOptions);
-  const vencimentoInput = await perguntar("Data de Vencimento:", "date");
-  let venc = null;
-  if (vencimentoInput && vencimentoInput.trim() !== "") {
-    const d = new Date(vencimentoInput);
-    if (!isNaN(d)) venc = d.toISOString();
-  }
+  const vencimentoInput = await perguntar("Data de Vencimento (dd/mm/yyyy):","text");
+  const vencimento = parseDataCSV(vencimentoInput);
 
   await addDoc(collection(db, "Cartao"), {
     nome, cpf, userId, regional, unidade, assessor, areaPlantada,
     limiteConcedido, limiteDisponivel, percentualDisponivel,
-    statusLogistico, statusLimite, vencimento: venc,
-    historico: [], primeiroLogin: false
+    statusLogistico, statusLimite, vencimento,
+    historico: [], primeiroLogin:false
   });
-
   alert("Cartão salvo com sucesso!");
   carregarCartoes();
 }
 
-// Atualizar cartão (status)
+// Atualizar Status
 async function atualizarCartao(id) {
   const sLogistico = await perguntar("Atualizar Status Logístico:", "select", statusLogisticoOptions);
   const sLimite = await perguntar("Atualizar Status Limite:", "select", statusLimiteOptions);
@@ -129,104 +134,90 @@ async function atualizarCartao(id) {
   await updateDoc(ref, {
     statusLogistico: sLogistico,
     statusLimite: sLimite,
-    historico: arrayUnion({ data: new Date().toISOString(), statusLogistico: sLogistico, statusLimite: sLimite })
+    historico: arrayUnion({
+      data: new Date().toISOString(),
+      statusLogistico: sLogistico,
+      statusLimite: sLimite
+    })
   });
   alert("Status atualizado!");
   carregarCartoes();
 }
 
-// Executar CSV
-let csvFile;
-function selecionarCSV(event) { csvFile = event.target.files[0]; }
-
-async function executarCSV() {
-  if (!csvFile) { alert("Selecione um arquivo CSV primeiro."); return; }
-  const text = await csvFile.text();
-  const linhas = text.split("\n").filter(l => l.trim() !== "");
-  const cabecalho = linhas.shift().split(";");
-
+// Importar CSV
+async function importarCSV(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const text = await file.text();
+  const linhas = text.split(/\r?\n/);
+  linhas.shift(); // remove header
   for (const linha of linhas) {
+    if (!linha.trim()) continue;
     const campos = linha.split(";");
-    let venc = null;
-    if (campos[12] && campos[12].trim() !== "") {
-      const d = new Date(campos[12]);
-      if (!isNaN(d)) venc = d.toISOString();
-    }
-
+    const vencimento = parseDataCSV(campos[12]);
     await addDoc(collection(db, "Cartao"), {
-      nome: campos[0], cpf: campos[1], userId: campos[2],
-      statusLogistico: campos[3], statusLimite: campos[4],
-      areaPlantada: campos[5], regional: campos[6], unidade: campos[7],
-      assessor: campos[8], limiteConcedido: parseFloat(campos[9]),
-      limiteDisponivel: parseFloat(campos[10]), percentualDisponivel: parseFloat(campos[11]),
-      vencimento: venc, historico: [], primeiroLogin: false
+      nome: campos[0], cpf: campos[1], userId: campos[2], statusLogistico: campos[3], statusLimite: campos[4],
+      areaPlantada: campos[5], regional: campos[6], unidade: campos[7], assessor: campos[8],
+      limiteConcedido: parseFloat(campos[9]), limiteDisponivel: parseFloat(campos[10]),
+      percentualDisponivel: parseFloat(campos[11]), vencimento, historico: [], primeiroLogin:false
     });
   }
-  alert("CSV processado e dados salvos!");
+  alert("CSV importado com sucesso!");
   carregarCartoes();
 }
 
-// Login
+// Deletar todos os documentos exceto um ID fixo
+async function deletarTudo() {
+  const snapshot = await getDocs(collection(db, "Cartao"));
+  for (const docSnap of snapshot.docs) {
+    if (docSnap.id !== "CB0WCT2tC1R7juMQ3sT9") await deleteDoc(doc(db, "Cartao", docSnap.id));
+  }
+  alert("Todos os documentos (exceto o fixo) foram deletados!");
+  carregarCartoes();
+}
+
+// Login (simples)
 async function login() {
   const email = document.getElementById("login-email").value;
   const senha = document.getElementById("login-senha").value;
   try {
     const userCredential = await signInWithEmailAndPassword(auth, email, senha);
     const user = userCredential.user;
-    const q = query(collection(db, "Cartao"), where("userId", "==", email));
-    const querySnapshot = await getDocs(q);
-    if (!querySnapshot.empty) {
-      const userDoc = querySnapshot.docs[0];
-      const data = userDoc.data();
-      if (data.primeiroLogin) {
-        const novaSenha = prompt("Troque sua senha:");
-        await updatePassword(user, novaSenha);
-        await updateDoc(doc(db, "Cartao", userDoc.id), { primeiroLogin: false });
-        alert("Senha atualizada! Faça login novamente.");
-        return;
-      }
-    }
-    document.getElementById("login-box").style.display = "none";
-    document.getElementById("app").style.display = "block";
+    document.getElementById("login-container").style.display="none";
+    document.getElementById("app").style.display="block";
     carregarCartoes();
-  } catch (error) {
-    alert("Erro: " + error.message);
-  }
+  } catch(err) { alert("Erro no login: "+err.message);}
 }
-
-window.onload = () => {};
-window.inserirCartao = inserirCartao;
-window.atualizarCartao = atualizarCartao;
-window.executarCSV = executarCSV;
-window.selecionarCSV = selecionarCSV;
 
 </script>
 <style>
-body { background-color: black; color: white; font-family: Arial, sans-serif; margin:0; padding:0; }
+body { background-color: black; color: white; font-family: Arial, sans-serif; margin:0; }
 table { width: 100%; border-collapse: collapse; margin-top: 20px; }
 th, td { border: 1px solid white; padding: 8px; text-align: center; }
-button { background: white; color: black; border: none; padding: 5px 10px; cursor: pointer; border-radius: 6px; }
+button, .btn { background: white; color: black; border: none; padding: 5px 10px; cursor: pointer; border-radius: 6px; }
+button:hover, .btn:hover { opacity:0.9; }
+input, select { width: 90%; padding: 5px; margin: 5px 0; border: 1px solid white; border-radius:5px; background:black; color:white; }
 .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; justify-content: center; align-items: center; }
 .modal-content { background: #222; padding: 20px; border-radius: 10px; text-align: center; }
-select, input { width: 100%; padding: 8px; margin: 10px 0; }
-#login-box { position: fixed; top:50%; left:50%; transform: translate(-50%, -50%); background:#222; padding:20px; border-radius:10px; text-align:center; }
-#login-box input { width: 200px; margin-bottom:10px; }
+#login-container { position: fixed; top:0; left:0; width:100%; height:100%; display:flex; justify-content:center; align-items:center; flex-direction:column; }
+#login-box { background:#111; padding:20px; border-radius:10px; display:flex; flex-direction:column; align-items:center; }
 </style>
 </head>
 <body>
-
-<div id="login-box">
-  <h2>Login</h2>
-  <input id="login-email" type="text" placeholder="Email"><br>
-  <input id="login-senha" type="password" placeholder="Senha"><br>
-  <button onclick="login()">Entrar</button>
+<div id="login-container">
+  <div id="login-box">
+    <h2>Login</h2>
+    <input type="email" id="login-email" placeholder="Email">
+    <input type="password" id="login-senha" placeholder="Senha">
+    <button onclick="login()">Entrar</button>
+  </div>
 </div>
 
 <div id="app" style="display:none">
 <h1>Gestão de Cartões</h1>
-<button onclick="inserirCartao()">Inserir Cliente/Cartão</button>
-<input type="file" accept=".csv" onchange="selecionarCSV(event)">
-<button onclick="executarCSV()">Executar CSV</button>
+<input type="file" id="csv-file" accept=".csv">
+<button class="btn" onclick="document.getElementById('csv-file').click()">Importar CSV</button>
+<button class="btn" onclick="deletarTudo()">Deletar Tudo</button>
 <table>
   <thead>
     <tr>
@@ -250,5 +241,8 @@ select, input { width: 100%; padding: 8px; margin: 10px 0; }
 </table>
 </div>
 
+<script>
+document.getElementById('csv-file').addEventListener('change', importarCSV);
+</script>
 </body>
 </html>
