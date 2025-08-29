@@ -5,7 +5,7 @@
 <title>Gestão de Cartões</title>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, arrayUnion, deleteDoc, query, where } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+import { getFirestore, collection, addDoc, getDocs, doc, updateDoc, arrayUnion, query, where, deleteDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 import { getAuth, signInWithEmailAndPassword, updatePassword } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
 
 const firebaseConfig = {
@@ -23,12 +23,26 @@ const auth = getAuth(app);
 
 // Opções fixas
 const regionais = ["1","2","3"];
-const unidadesPorRegional = { "1":["A","B","C"], "2":["D","E","F"], "3":["G","H","I"] };
-const assessoresPorRegional = { "1":["Joao"], "2":["Pedro"], "3":["Carlos"] };
+const unidadesPorRegional = {
+  "1": ["A","B","C"],
+  "2": ["D","E","F"],
+  "3": ["G","H","I"]
+};
+const assessoresPorRegional = {
+  "1": ["Joao"],
+  "2": ["Pedro"],
+  "3": ["Carlos"]
+};
 const statusLogisticoOptions = [
-  "1 -", "2 - Aguardando receber plástico na TC (Ijuí)","3 - Aguardando receber plástico na TC (Sinop)",
-  "3.5 - Na TC Ijuí","4 - Em Trânsito para a unidade","5 - Aguardando Entrega ao cliente",
-  "6 - Cartão Não Entregue","7 - Cartão Entregue","8 - Não se Aplica"
+  "1 -",
+  "2 - Aguardando receber plástico na TC (Ijuí)",
+  "3 - Aguardando receber plástico na TC (Sinop)",
+  "3.5 - Na TC Ijuí",
+  "4 - Em Trânsito para a unidade",
+  "5 - Aguardando Entrega ao cliente",
+  "6 - Cartão Não Entregue",
+  "7 - Cartão Entregue",
+  "8 - Não se Aplica"
 ];
 const statusLimiteOptions = [
   "01 - Limite - Aguardando análise","02 - Limite - Análise de Crédito",
@@ -40,50 +54,36 @@ const statusLimiteOptions = [
   "13 - Desbloqueado sem utilização","14 - Ativo","15 - Limite - Cancelado","99 - NEGADO WM"
 ];
 
-// Tela de login
-async function loginUser(){
-  const email = document.getElementById("email").value;
-  const senha = document.getElementById("senha").value;
-  try {
-    const userCredential = await signInWithEmailAndPassword(auth,email,senha);
-    const user = userCredential.user;
-    document.getElementById("loginDiv").style.display="none";
-    document.getElementById("app").style.display="block";
-    carregarCartoes();
-  } catch(error){
-    alert("Erro: "+error.message);
-  }
-}
-window.loginUser = loginUser;
-
-// Popup genérico
-function perguntar(titulo, tipo="text", opcoes=[]){
-  return new Promise(resolve=>{
-    const modal=document.createElement("div");
-    modal.className="modal";
-    modal.innerHTML=`<div class="modal-content">
-      <h3>${titulo}</h3>
-      ${tipo==="select"?`<select id="modal-input">${opcoes.map(o=>`<option value="${o}">${o}</option>`).join("")}</select>`:`<input type="${tipo}" id="modal-input">`}
-      <button id="ok-btn">OK</button>
-    </div>`;
+// POPUP genérico
+function perguntar(titulo, tipo="text", opcoes=[]) {
+  return new Promise(resolve => {
+    const modal = document.createElement("div");
+    modal.className = "modal";
+    modal.innerHTML = `
+      <div class="modal-content">
+        <h3>${titulo}</h3>
+        ${tipo==="select" ? `<select id="modal-input">${opcoes.map(o=>`<option value="${o}">${o}</option>`).join("")}</select>` : `<input type="${tipo}" id="modal-input">`}
+        <button id="ok-btn">OK</button>
+      </div>
+    `;
     document.body.appendChild(modal);
-    document.getElementById("ok-btn").onclick=()=>{
-      const valor=document.getElementById("modal-input").value;
+    document.getElementById("ok-btn").onclick = () => {
+      const valor = document.getElementById("modal-input").value;
       modal.remove();
       resolve(valor);
-    }
+    };
   });
 }
 
-// Carregar tabela
-async function carregarCartoes(){
-  const snapshot = await getDocs(collection(db,"Cartao"));
-  const tbody=document.querySelector("#cartoes-body");
-  tbody.innerHTML="";
-  snapshot.forEach(docSnap=>{
-    const c=docSnap.data();
-    const tr=document.createElement("tr");
-    tr.innerHTML=`
+// Carregar cartões
+async function carregarCartoes() {
+  const snapshot = await getDocs(collection(db, "Cartao"));
+  const tbody = document.querySelector("#cartoes-body");
+  tbody.innerHTML = "";
+  snapshot.forEach(docSnap => {
+    const c = docSnap.data();
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
       <td>${c.nome}</td>
       <td>${c.cpf || ''}</td>
       <td>${c.userId || ''}</td>
@@ -96,128 +96,178 @@ async function carregarCartoes(){
       <td>${c.limiteConcedido}</td>
       <td>${c.limiteDisponivel}</td>
       <td>${c.percentualDisponivel}%</td>
-      <td>${c.vencimento?new Date(c.vencimento).toLocaleDateString("pt-BR"):''}</td>
-      <td><button class="btn-update">Atualizar Status</button></td>`;
+      <td>${c.vencimento ? new Date(c.vencimento).toLocaleDateString("pt-BR") : ''}</td>
+      <td><button class="btn-update">Atualizar Status</button></td>
+    `;
     tbody.appendChild(tr);
-    tr.querySelector(".btn-update").addEventListener("click",()=>atualizarCartao(docSnap.id));
+
+    tr.querySelector(".btn-update").addEventListener("click", () => atualizarCartao(docSnap.id));
   });
 }
 
-// Inserir CSV
-let csvData=null;
-function handleCSV(e){
-  const file=e.target.files[0];
+// Inserir cliente/cartão
+async function inserirCartao() {
+  const nome = await perguntar("Nome do Cliente:");
+  const cpf = await perguntar("CPF:");
+  const userId = await perguntar("User ID:");
+  const regional = await perguntar("Regional:", "select", regionais);
+  const unidade = await perguntar("Unidade:", "select", unidadesPorRegional[regional]);
+  const assessor = await perguntar("Assessor:", "select", assessoresPorRegional[regional]);
+  const areaPlantada = await perguntar("Área Plantada:");
+  const limiteConcedido = parseFloat(await perguntar("Limite Concedido:", "number"));
+  const limiteDisponivel = parseFloat(await perguntar("Limite Disponível:", "number"));
+  const percentualDisponivel = ((limiteDisponivel/limiteConcedido)*100).toFixed(2);
+  const statusLogistico = await perguntar("Status Logístico:", "select", statusLogisticoOptions);
+  const statusLimite = await perguntar("Status Limite:", "select", statusLimiteOptions);
+  const vencimentoInput = await perguntar("Data de Vencimento:", "date");
+  const vencimento = new Date(vencimentoInput).toISOString();
+
+  await addDoc(collection(db, "Cartao"), {
+    nome, cpf, userId, regional, unidade, assessor, areaPlantada,
+    limiteConcedido, limiteDisponivel, percentualDisponivel,
+    statusLogistico, statusLimite,
+    vencimento,
+    historico: [],
+    primeiroLogin: false
+  });
+
+  alert("Cartão salvo com sucesso!");
+  carregarCartoes();
+}
+
+// Atualizar cartão (apenas status)
+async function atualizarCartao(id) {
+  const sLogistico = await perguntar("Atualizar Status Logístico:", "select", statusLogisticoOptions);
+  const sLimite = await perguntar("Atualizar Status Limite:", "select", statusLimiteOptions);
+
+  const ref = doc(db, "Cartao", id);
+  await updateDoc(ref, {
+    statusLogistico: sLogistico,
+    statusLimite: sLimite,
+    historico: arrayUnion({
+      data: new Date().toISOString(),
+      statusLogistico: sLogistico,
+      statusLimite: sLimite
+    })
+  });
+
+  alert("Status atualizado!");
+  carregarCartoes();
+}
+
+// Deletar todos exceto ID específico
+async function deletarTudoExceto() {
+  if(!confirm("Deseja realmente deletar todos os registros, exceto o ID específico?")) return;
+  const snapshot = await getDocs(collection(db, "Cartao"));
+  snapshot.forEach(async docSnap => {
+    if(docSnap.id !== "CB0WCT2tC1R7juMQ3sT9") {
+      await deleteDoc(doc(db,"Cartao",docSnap.id));
+    }
+  });
+  alert("Registros deletados!");
+  carregarCartoes();
+}
+
+// Importar CSV
+let csvData = [];
+function handleCSVUpload(event) {
+  const file = event.target.files[0];
   if(!file) return;
-  const reader=new FileReader();
-  reader.onload=function(ev){
-    csvData=ev.target.result.split("\n").map(r=>r.split(";"));
-    alert("CSV carregado! Clique em 'Executar CSV' para inserir no banco.");
-  }
+  const reader = new FileReader();
+  reader.onload = e => {
+    const lines = e.target.result.split("\n");
+    csvData = lines.map(line => line.trim()).filter(l => l).map(line => line.split(";"));
+    alert("CSV carregado. Clique em 'Executar CSV' para importar.");
+  };
   reader.readAsText(file);
 }
 
-// Executar CSV
-async function executarCSV(){
-  if(!csvData) return alert("Nenhum CSV carregado!");
-  const headers=csvData[0];
-  for(let i=1;i<csvData.length;i++){
-    if(csvData[i].length<headers.length) continue;
-    const row=csvData[i];
-    const obj={
-      nome: row[0],
-      cpf: row[1],
-      userId: row[2],
-      statusLogistico: row[3],
-      statusLimite: row[4],
-      areaPlantada: row[5],
-      regional: row[6],
-      unidade: row[7],
-      assessor: row[8],
-      limiteConcedido: parseFloat(row[9]),
-      limiteDisponivel: parseFloat(row[10]),
-      percentualDisponivel: parseFloat(row[11]),
-      vencimento: new Date(row[12]).toISOString(),
+async function executarCSV() {
+  for(const row of csvData) {
+    if(row.length < 13) continue;
+    const [nome, cpf, userId, statusLogistico, statusLimite, areaPlantada, regional, unidade, assessor, limiteConcedido, limiteDisponivel, percDisponivel, vencimento] = row;
+    await addDoc(collection(db, "Cartao"), {
+      nome, cpf, userId, statusLogistico, statusLimite, areaPlantada, regional, unidade, assessor,
+      limiteConcedido: parseFloat(limiteConcedido),
+      limiteDisponivel: parseFloat(limiteDisponivel),
+      percentualDisponivel: parseFloat(percDisponivel),
+      vencimento: new Date(vencimento).toISOString(),
       historico: [],
-      primeiroLogin:false
-    };
-    await addDoc(collection(db,"Cartao"),obj);
+      primeiroLogin: false
+    });
   }
   alert("CSV importado com sucesso!");
   carregarCartoes();
 }
 
-// Atualizar status
-async function atualizarCartao(id){
-  const sLogistico=await perguntar("Atualizar Status Logístico:","select",statusLogisticoOptions);
-  const sLimite=await perguntar("Atualizar Status Limite:","select",statusLimiteOptions);
-  const ref=doc(db,"Cartao",id);
-  await updateDoc(ref,{
-    statusLogistico:sLogistico,
-    statusLimite:sLimite,
-    historico:arrayUnion({data:new Date().toISOString(),statusLogistico:sLogistico,statusLimite:sLimite})
-  });
-  alert("Status atualizado!");
-  carregarCartoes();
+// Login simples
+async function login() {
+  const email = document.getElementById("email-login").value;
+  const senha = document.getElementById("senha-login").value;
+  try {
+    const userCredential = await signInWithEmailAndPassword(auth, email, senha);
+    const user = userCredential.user;
+    document.getElementById("login-container").style.display = "none";
+    document.getElementById("app").style.display = "block";
+    carregarCartoes();
+  } catch (err) {
+    alert("Erro no login: "+err.message);
+  }
 }
 
-// Deletar tudo exceto documento específico
-async function deletarTudo(){
-  if(!confirm("Deseja deletar todos os cartões exceto o protegido?")) return;
-  const snapshot = await getDocs(collection(db,"Cartao"));
-  snapshot.forEach(async docSnap=>{
-    if(docSnap.id!=="CB0WCT2tC1R7juMQ3sT9") await deleteDoc(doc(db,"Cartao",docSnap.id));
-  });
-  alert("Exclusão concluída!");
-  carregarCartoes();
-}
+window.onload = () => {};
+window.inserirCartao = inserirCartao;
+window.atualizarCartao = atualizarCartao;
+window.deletarTudoExceto = deletarTudoExceto;
+window.handleCSVUpload = handleCSVUpload;
+window.executarCSV = executarCSV;
+
 </script>
 <style>
-body{background:black;color:white;font-family:Arial,sans-serif;margin:0;padding:0;}
-#loginDiv{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:#222;padding:30px;border-radius:10px;text-align:center;}
-#loginDiv input{width:200px;margin:5px;padding:5px;border-radius:4px;border:none;}
-#loginDiv button{padding:5px 10px;border-radius:6px;border:none;background:white;color:black;cursor:pointer;margin-top:10px;}
-#app{display:none;padding:20px;}
-table{width:100%;border-collapse:collapse;margin-top:20px;}
-th,td{border:1px solid white;padding:8px;text-align:center;}
-button{cursor:pointer;border-radius:6px;border:none;padding:5px 10px;background:white;color:black;}
-.modal{position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);display:flex;justify-content:center;align-items:center;}
-.modal-content{background:#222;padding:20px;border-radius:10px;text-align:center;}
-select,input{width:100%;padding:8px;margin:10px 0;}
+body { background-color: black; color: white; font-family: Arial, sans-serif; margin:0; height:100vh; display:flex; justify-content:center; align-items:center; }
+#login-container { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; background:#222; padding:20px; border-radius:10px; }
+input { padding:5px; width:200px; border-radius:5px; border:none; }
+button { padding:5px 10px; border-radius:5px; border:none; cursor:pointer; background:white; color:black; }
+#app { display:none; width:100%; max-width:1200px; margin:auto; }
+table { width:100%; border-collapse: collapse; margin-top:20px; }
+th, td { border:1px solid white; padding:8px; text-align:center; }
+.modal { position:fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.8); display:flex; justify-content:center; align-items:center; }
+.modal-content { background:#222; padding:20px; border-radius:10px; text-align:center; }
 </style>
 </head>
 <body>
-<div id="loginDiv">
-<h2>Login</h2>
-<input type="email" id="email" placeholder="Email"><br>
-<input type="password" id="senha" placeholder="Senha"><br>
-<button onclick="loginUser()">Entrar</button>
+<div id="login-container">
+  <input type="email" id="email-login" placeholder="Email">
+  <input type="password" id="senha-login" placeholder="Senha">
+  <button onclick="login()">Entrar</button>
 </div>
 
 <div id="app">
 <h1>Gestão de Cartões</h1>
-<input type="file" id="csvInput" accept=".csv" onchange="handleCSV(event)">
+<button onclick="inserirCartao()">Inserir Cliente/Cartão</button>
+<input type="file" accept=".csv" onchange="handleCSVUpload(event)">
 <button onclick="executarCSV()">Executar CSV</button>
-<button onclick="deletarTudo()">Deletar Tudo</button>
+<button onclick="deletarTudoExceto()">Deletar Todos (exceto ID específico)</button>
 <table>
-<thead>
-<tr>
-<th>Cliente</th>
-<th>CPF</th>
-<th>User ID</th>
-<th>Status Logístico</th>
-<th>Status Limite</th>
-<th>Área Plantada</th>
-<th>Regional</th>
-<th>Unidade</th>
-<th>Assessor</th>
-<th>Limite Concedido</th>
-<th>Limite Disponível</th>
-<th>% Disponível</th>
-<th>Vencimento</th>
-<th>Ações</th>
-</tr>
-</thead>
-<tbody id="cartoes-body"></tbody>
+  <thead>
+    <tr>
+      <th>Cliente</th>
+      <th>CPF</th>
+      <th>User ID</th>
+      <th>Status Logístico</th>
+      <th>Status Limite</th>
+      <th>Área Plantada</th>
+      <th>Regional</th>
+      <th>Unidade</th>
+      <th>Assessor</th>
+      <th>Limite Concedido</th>
+      <th>Limite Disponível</th>
+      <th>% Disponível</th>
+      <th>Vencimento</th>
+      <th>Ações</th>
+    </tr>
+  </thead>
+  <tbody id="cartoes-body"></tbody>
 </table>
 </div>
 </body>
