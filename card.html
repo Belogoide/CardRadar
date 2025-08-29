@@ -5,109 +5,38 @@
   <title>Gestão de Cartões — Completo</title>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <style>
-   :root{
-  --bg:#000; /* fundo principal preto */
-  --card:#111; /* fundo dos cards/modais preto escuro */
-  --accent:#fff; /* textos principais brancos */
-  --muted:#ccc; /* textos secundários cinza claro */
-  --success:#1a9a3b;
-}
-
-body{
-  margin:0; 
-  font-family:Arial,Helvetica,sans-serif; 
-  background:var(--bg); 
-  color:var(--accent);
-}
-
-header h1{
-  color:var(--accent);
-}
-
-.card{
-  background:var(--card); 
-  border-radius:10px; 
-  padding:18px; 
-  box-shadow:0 0 0 1px #fff inset; /* borda branca para cards */
-  color:var(--accent);
-}
-
-input[type="email"], 
-input[type="password"], 
-input[type="text"], 
-input[type="number"], 
-input[type="date"], 
-select{
-  width:100%; 
-  padding:10px; 
-  margin:8px 0; 
-  border-radius:6px; 
-  border:1px solid #fff; /* borda branca */
-  background:#111; 
-  color:#fff; 
-  font-size:14px;
-}
-
-button{
-  padding:10px 12px;
-  border-radius:6px;
-  border:1px solid #fff; /* borda branca */
-  background:#000;
-  color:#fff;
-  cursor:pointer;
-}
-
-button.secondary{
-  background:#222;
-  border:1px solid #fff;
-  color:#fff;
-}
-
-.actions{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
-
-table{
-  width:100%; 
-  border-collapse:collapse; 
-  margin-top:12px;
-  color:#fff;
-}
-
-th, td{
-  padding:8px;
-  border:1px solid #fff;
-  text-align:left;
-  font-size:13px;
-}
-
-th{background:#111}
-
-tr:nth-child(even){background:#222}
-
-.small{font-size:12px;color:#ccc}
-
-.top-row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
-
-/* Formulários pop-up / modais */
-#cardForm, #firstLoginSection{
-  border:1px solid #fff; /* borda branca */
-  background:var(--card);
-  color:#fff;
-}
-
-/* Botões ao passar mouse */
-button:hover{
-  background:#333;
-}
-
-/* File input */
-.file-input{
-  color:#fff;
-}
-
-@media(max-width:820px){
-  header{flex-direction:column;align-items:flex-start;gap:8px}
-}
-
+    :root{
+      --bg:#000; --card:#000; --accent:#fff; --muted:#ccc;
+      --success:#1a9a3b;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; font-family:Arial,Helvetica,sans-serif; background:var(--bg); color:#fff;
+    }
+    .wrap{max-width:1100px; margin:32px auto; padding:20px;}
+    header{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+    header h1{margin:0;font-size:20px;color:var(--accent)}
+    .card{background:var(--card); border-radius:10px; padding:18px; box-shadow:0 0 0 2px #fff;}
+    .login-grid{max-width:420px;margin:0 auto}
+    input[type="email"], input[type="password"], input[type="text"], input[type="number"], input[type="date"], select{
+      width:100%; padding:10px; margin:8px 0; border-radius:6px; border:1px solid #fff;
+      font-size:14px; background:#000; color:#fff;
+    }
+    button{padding:10px 12px;border-radius:6px;border:1px solid #fff;background:var(--accent);color:#000;cursor:pointer}
+    button.secondary{background:#555;color:#fff;border:1px solid #fff}
+    .hidden{display:none}
+    .actions{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+    table{width:100%; border-collapse:collapse; margin-top:12px}
+    th,td{padding:8px;border:1px solid #fff;text-align:left;font-size:13px;color:#fff}
+    th{background:#111}
+    tr:nth-child(even){background:#222}
+    .admin-only{display:none}
+    .small {font-size:12px;color:#ccc}
+    .top-row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+    .file-input{display:inline-block;color:#000}
+    @media(max-width:820px){
+      header{flex-direction:column;align-items:flex-start;gap:8px}
+    }
   </style>
 </head>
 <body>
@@ -166,7 +95,7 @@ button:hover{
       </div>
 
       <!-- Add/Edit form (admin only) -->
-      <div id="cardForm" class="hidden" style="margin-top:12px;border:1px solid #eee;padding:12px;border-radius:8px">
+      <div id="cardForm" class="hidden" style="margin-top:12px;border:2px solid #fff;padding:12px;border-radius:8px">
         <h3 style="margin:0 0 8px 0">Inserir / Editar Cartão</h3>
         <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">
           <input id="f_nome" placeholder="Nome do Cliente" />
@@ -246,24 +175,8 @@ button:hover{
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-    import {
-      getAuth,
-      signInWithEmailAndPassword,
-      signOut,
-      onAuthStateChanged,
-      updatePassword
-    } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
-    import {
-      getFirestore,
-      collection,
-      getDocs,
-      addDoc,
-      doc,
-      getDoc,
-      setDoc,
-      updateDoc,
-      deleteDoc
-    } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+    import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged, updatePassword } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
+    import { getFirestore, collection, getDocs, addDoc, doc, getDoc, setDoc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyBKw2vWc6hwICs-yCsdqr1h4M1hmMUD0wE",
@@ -279,7 +192,6 @@ button:hover{
     const db = getFirestore(app);
 
     const PROTECTED_DOC_ID = "CB0WCT2tC1R7juMQ3sT9";
-
     const unidadesPorUsuario = {
       "usuario1@teste.com": ["A","B"],
       "usuario2@teste.com": ["C"]
@@ -299,172 +211,164 @@ button:hover{
     const cardForm = document.getElementById("cardForm");
     const csvInput = document.getElementById("csvFileInput");
 
-    csvInput.addEventListener("change", (e) => { csvFile = e.target.files[0]; });
+    csvInput.addEventListener("change",(e)=>{csvFile=e.target.files[0];});
 
-    onAuthStateChanged(auth, async (user) => {
-      currentUser = user;
-      if (user) {
-        loginSection.classList.add("hidden");
-        firstLoginSection.classList.add("hidden");
-        appSection.classList.remove("hidden");
+    onAuthStateChanged(auth, async (user)=>{
+      currentUser=user;
+      if(user){
+        userEmailDisplay.textContent=user.email;
         logoutBtn.classList.remove("hidden");
-        userEmailDisplay.textContent = user.email;
 
-        const userDocRef = doc(db, "Usuarios", user.uid);
-        try {
+        const userDocRef = doc(db,"Usuarios",user.uid);
+        let isFirstLogin=true;
+        try{
           const userSnap = await getDoc(userDocRef);
-          if (!userSnap.exists()) {
-            firstLoginSection.classList.remove("hidden");
-            appSection.classList.add("hidden");
-            return;
+          if(userSnap.exists()) isFirstLogin=false;
+        }catch(err){alert("Erro ao verificar usuário: "+err.message);}
+
+        if(isFirstLogin){
+          loginSection.classList.add("hidden");
+          firstLoginSection.classList.remove("hidden");
+          appSection.classList.add("hidden");
+        }else{
+          loginSection.classList.add("hidden");
+          firstLoginSection.classList.add("hidden");
+          appSection.classList.remove("hidden");
+          if(user.email==="teste@teste.com.br"){
+            document.querySelectorAll(".admin-only").forEach(el=>el.style.display="block");
           }
-        } catch (err) {
-          alert("Erro ao verificar usuário: " + err.message);
+          await carregarCartoes();
         }
-
-        if (user.email === "teste@teste.com.br") {
-          document.querySelectorAll(".admin-only").forEach(el => el.style.display = "block");
-        } else {
-          document.querySelectorAll(".admin-only").forEach(el => el.style.display = "none");
-        }
-
-        await carregarCartoes();
-      } else {
+      }else{
         loginSection.classList.remove("hidden");
         firstLoginSection.classList.add("hidden");
         appSection.classList.add("hidden");
         logoutBtn.classList.add("hidden");
-        userEmailDisplay.textContent = "";
+        userEmailDisplay.textContent="";
       }
     });
 
-    async function login() {
+    async function login(){
       const email = document.getElementById("inputEmail").value.trim();
       const senha = document.getElementById("inputPassword").value;
-      document.getElementById("loginError").textContent = "";
-      if (!email || !senha) { document.getElementById("loginError").textContent = "Informe email e senha."; return; }
-      try { await signInWithEmailAndPassword(auth, email, senha); } 
-      catch (err) { document.getElementById("loginError").textContent = err.message; }
+      document.getElementById("loginError").textContent="";
+      if(!email||!senha){document.getElementById("loginError").textContent="Informe email e senha.";return;}
+      try{await signInWithEmailAndPassword(auth,email,senha);}catch(err){document.getElementById("loginError").textContent=err.message;}
     }
 
-    async function logout() { await signOut(auth); }
-
-    async function handleFirstLoginSetPassword() {
-      const np = document.getElementById("newPassword").value;
-      const cp = document.getElementById("confirmNewPassword").value;
-      const msgEl = document.getElementById("firstLoginMsg");
-      msgEl.textContent = "";
-
-      if (!np || np.length < 6) { msgEl.textContent = "Senha deve ter ao menos 6 caracteres."; return; }
-      if (np !== cp) { msgEl.textContent = "Senhas não conferem."; return; }
-      if (!currentUser) { msgEl.textContent = "Usuário não autenticado."; return; }
-
-      try {
-        await updatePassword(currentUser, np);
-        await setDoc(doc(db, "Usuarios", currentUser.uid), { primeiroLogin: true, email: currentUser.email });
+    async function handleFirstLoginSetPassword(){
+      const np=document.getElementById("newPassword").value;
+      const cp=document.getElementById("confirmNewPassword").value;
+      const msgEl=document.getElementById("firstLoginMsg");
+      msgEl.textContent="";
+      if(!np||np.length<6){msgEl.textContent="Senha deve ter ao menos 6 caracteres.";return;}
+      if(np!==cp){msgEl.textContent="Senhas não conferem.";return;}
+      if(!currentUser){msgEl.textContent="Usuário não autenticado.";return;}
+      try{
+        await updatePassword(currentUser,np);
+        await setDoc(doc(db,"Usuarios",currentUser.uid),{primeiroLogin:true,email:currentUser.email});
         firstLoginSection.classList.add("hidden");
         appSection.classList.remove("hidden");
-        if (currentUser.email === "teste@teste.com.br") document.querySelectorAll(".admin-only").forEach(el => el.style.display = "block");
+        if(currentUser.email==="teste@teste.com.br"){
+          document.querySelectorAll(".admin-only").forEach(el=>el.style.display="block");
+        }
         await carregarCartoes();
-      } catch (err) { msgEl.textContent = "Erro: " + err.message; }
+      }catch(err){msgEl.textContent="Erro: "+err.message;}
     }
 
-    async function carregarCartoes() {
-      cardsTbody.innerHTML = "";
-      try {
-        const snapshot = await getDocs(collection(db, "Cartao"));
-        const rows = [];
-        snapshot.forEach(s => { const d = s.data(); d.__id = s.id; rows.push(d); });
-
-        const email = currentUser?.email || "";
-        const allowedUnits = unidadesPorUsuario[email] || null;
-        for (const c of rows) {
-          if (email !== "teste@teste.com.br") {
-            if (!allowedUnits || !allowedUnits.includes((c.unidade || "").toString())) continue;
-          }
-          const tr = document.createElement("tr");
-          tr.innerHTML = `
-            <td>${escapeHtml(c.nome || "")}</td>
-            <td>${escapeHtml(c.cpf || "")}</td>
-            <td>${escapeHtml(c.statusLogistico || "")}</td>
-            <td>${escapeHtml(c.statusLimite || "")}</td>
-            <td>${escapeHtml(c.areaPlantada || "")}</td>
-            <td>${escapeHtml(c.regional || "")}</td>
-            <td>${escapeHtml(c.unidade || "")}</td>
-            <td>${escapeHtml(c.assessor || "")}</td>
-            <td>${numFormat(c.limiteConcedido)}</td>
-            <td>${numFormat(c.limiteDisponivel)}</td>
-            <td>${c.percentualDisponivel != null ? escapeHtml(c.percentualDisponivel + "%") : ""}</td>
-            <td>${c.vencimento ? escapeHtml(new Date(c.vencimento).toLocaleDateString("pt-BR")) : ""}</td>
-            <td>${currentUser && currentUser.email === "teste@teste.com.br" ? `<button onclick="openEditForm('${c.__id}')">Editar</button>` : ""}</td>
+    async function carregarCartoes(){
+      cardsTbody.innerHTML="";
+      try{
+        const snapshot = await getDocs(collection(db,"Cartao"));
+        snapshot.forEach(s=>{
+          const c=s.data();
+          const tr=document.createElement("tr");
+          const perc=c.limiteConcedido?((c.limiteDisponivel/c.limiteConcedido)*100).toFixed(2)+"%":"";
+          tr.innerHTML=`
+            <td>${c.nome||""}</td>
+            <td>${c.cpf||""}</td>
+            <td>${c.statusLogistico||""}</td>
+            <td>${c.statusLimite||""}</td>
+            <td>${c.areaPlantada||""}</td>
+            <td>${c.regional||""}</td>
+            <td>${c.unidade||""}</td>
+            <td>${c.assessor||""}</td>
+            <td>${c.limiteConcedido||""}</td>
+            <td>${c.limiteDisponivel||""}</td>
+            <td>${perc}</td>
+            <td>${c.vencimento||""}</td>
+            <td>
+              <button onclick="editCard('${s.id}')">Editar</button>
+              <button onclick="deleteCard('${s.id}')" style="background:#b00020">Deletar</button>
+            </td>
           `;
           cardsTbody.appendChild(tr);
-        }
-      } catch (err) { alert("Erro ao carregar cartões: " + err.message); }
+        });
+      }catch(err){alert(err.message);}
     }
 
-    function escapeHtml(str){ return String(str).replace(/[&<>"']/g, (m) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
-    function numFormat(v){ if(v==null || v==="" || isNaN(Number(v))) return ""; return Number(v).toLocaleString("pt-BR", {minimumFractionDigits:2, maximumFractionDigits:2}) }
+    function logout(){signOut(auth);}
 
-    function showAddForm(){ editingDocId = null; document.getElementById("formMsg").textContent = ""; cardForm.classList.remove("hidden"); cardForm.scrollIntoView({behavior:"smooth"}); }
-    function hideAddForm(){ cardForm.classList.add("hidden"); editingDocId = null; }
-
-    async function saveCard(){ /* mesmo código existente */ }
-    async function openEditForm(docId){ /* mesmo código existente */ }
-    async function deleteAllExceptProtected(){ /* mesmo código existente */ }
-
-    // --- CSV import com data DD/MM/YYYY ---
-    async function runCSV(){
-      if(!currentUser || currentUser.email !== "teste@teste.com.br") return alert("Apenas admin.");
-      if(!csvFile) return alert("Selecione um arquivo CSV primeiro.");
-      try {
-        const text = await csvFile.text();
-        const lines = text.split("\n").map(l=>l.trim()).filter(l=>l!=="");
-        const headers = lines[0].split(";").map(h=>h.trim());
-        for(let i=1;i<lines.length;i++){
-          const cols = lines[i].split(";");
-          const obj = {};
-          headers.forEach((h,idx)=> obj[h] = (cols[idx]||"").trim());
-
-          let venc = null;
-          if(obj["Vencimento do limite"]){
-            const parts = obj["Vencimento do limite"].split("/");
-            if(parts.length===3) venc = new Date(`${parts[2]}-${parts[1]}-${parts[0]}`).toISOString();
-          }
-
-          await addDoc(collection(db, "Cartao"), {
-            nome: obj["Cliente"]||"",
-            cpf: obj["CPF"]||"",
-            regional: obj["Regional"]||"",
-            unidade: obj["Unidade 3Tentos"]||obj["Unidade"]||"",
-            assessor: obj["Assessor"]||"",
-            areaPlantada: obj["Area Plantada"]||"",
-            limiteConcedido: parseFloat(obj["Limite Concedido"])||0,
-            limiteDisponivel: parseFloat(obj["Limite Disponivel"])||0,
-            percentualDisponivel: parseFloat(obj["% do Limite Disponivel"])||0,
-            statusLogistico: obj["Status Logistico"]||"",
-            statusLimite: obj["Status Limite"]||"",
-            vencimento: venc,
-            historico:[]
-          });
-        }
-        alert("CSV importado com sucesso.");
-        csvFile=null; csvInput.value="";
-        await carregarCartoes();
-      } catch(err){ alert("Erro ao processar CSV: " + err.message); }
+    function showAddForm(){
+      editingDocId=null;
+      cardForm.classList.remove("hidden");
     }
 
-    window.login = login;
-    window.logout = logout;
-    window.handleFirstLoginSetPassword = handleFirstLoginSetPassword;
-    window.showAddForm = showAddForm;
-    window.hideAddForm = hideAddForm;
-    window.saveCard = saveCard;
-    window.openEditForm = openEditForm;
-    window.deleteAllExceptProtected = deleteAllExceptProtected;
-    window.runCSV = runCSV;
-    window.carregarCartoes = carregarCartoes;
+    function hideAddForm(){cardForm.classList.add("hidden");}
+
+    async function saveCard(){
+      const data={
+        nome:document.getElementById("f_nome").value,
+        cpf:document.getElementById("f_cpf").value,
+        regional:document.getElementById("f_regional").value,
+        unidade:document.getElementById("f_unidade").value,
+        assessor:document.getElementById("f_assessor").value,
+        areaPlantada:document.getElementById("f_areaPlantada").value,
+        limiteConcedido:Number(document.getElementById("f_limiteConcedido").value),
+        limiteDisponivel:Number(document.getElementById("f_limiteDisponivel").value),
+        statusLogistico:document.getElementById("f_statusLogistico").value,
+        statusLimite:document.getElementById("f_statusLimite").value,
+        vencimento:document.getElementById("f_vencimento").value
+      };
+      try{
+        if(editingDocId) await updateDoc(doc(db,"Cartao",editingDocId),data);
+        else await addDoc(collection(db,"Cartao"),data);
+        hideAddForm(); await carregarCartoes();
+      }catch(err){alert(err.message);}
+    }
+
+    async function editCard(id){
+      editingDocId=id;
+      const c = (await getDoc(doc(db,"Cartao",id))).data();
+      document.getElementById("f_nome").value=c.nome||"";
+      document.getElementById("f_cpf").value=c.cpf||"";
+      document.getElementById("f_regional").value=c.regional||"";
+      document.getElementById("f_unidade").value=c.unidade||"";
+      document.getElementById("f_assessor").value=c.assessor||"";
+      document.getElementById("f_areaPlantada").value=c.areaPlantada||"";
+      document.getElementById("f_limiteConcedido").value=c.limiteConcedido||"";
+      document.getElementById("f_limiteDisponivel").value=c.limiteDisponivel||"";
+      document.getElementById("f_statusLogistico").value=c.statusLogistico||"";
+      document.getElementById("f_statusLimite").value=c.statusLimite||"";
+      document.getElementById("f_vencimento").value=c.vencimento||"";
+      showAddForm();
+    }
+
+    async function deleteCard(id){
+      if(confirm("Confirma deletar?")){await deleteDoc(doc(db,"Cartao",id)); await carregarCartoes();}
+    }
+
+    async function deleteAllExceptProtected(){
+      if(!confirm("Confirma deletar todos os cartões exceto protegido?")) return;
+      const snapshot = await getDocs(collection(db,"Cartao"));
+      for(const s of snapshot.docs){
+        if(s.id!==PROTECTED_DOC_ID) await deleteDoc(doc(db,"Cartao",s.id));
+      }
+      await carregarCartoes();
+    }
+
+    async function runCSV(){if(!csvFile){alert("Escolha arquivo CSV");return;} alert("Função CSV pronta para implementar");}
+
   </script>
 </body>
 </html>
-
